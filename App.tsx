@@ -28,6 +28,22 @@ const App: React.FC = () => {
   // GLOBAL DATE STATE
   const [globalDate, setGlobalDate] = useState(new Date());
 
+  const monthPrefix = useMemo(() => {
+    return `${globalDate.getFullYear()}-${String(globalDate.getMonth() + 1).padStart(2, '0')}`;
+  }, [globalDate]);
+
+  const isPastMonth = useMemo(() => {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth();
+    const selectedYear = globalDate.getFullYear();
+    const selectedMonth = globalDate.getMonth();
+
+    if (selectedYear < currentYear) return true;
+    if (selectedYear === currentYear && selectedMonth < currentMonth) return true;
+    return false;
+  }, [globalDate]);
+
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newContactName, setNewContactName] = useState('');
 
@@ -139,9 +155,80 @@ const App: React.FC = () => {
     }
   }, [activeModule, viewState, isMigrating]);
 
+  // Dashboard Data Loading
+  const [dashboardData, setDashboardData] = useState<{ sales: Contact[], purchases: Contact[] }>({ sales: [], purchases: [] });
+  const [dashboardLoading, setDashboardLoading] = useState(false);
+
+  useEffect(() => {
+    if (viewState === 'MAIN_MENU') {
+      const loadDashboard = async () => {
+        setDashboardLoading(true);
+        try {
+          const [s, p] = await Promise.all([
+            api.getContacts('SALE'),
+            api.getContacts('PURCHASE')
+          ]);
+          setDashboardData({ sales: s, purchases: p });
+        } catch (e) {
+          console.error("Failed to load dashboard data", e);
+        } finally {
+          setDashboardLoading(false);
+        }
+      };
+      loadDashboard();
+    }
+  }, [viewState, globalDate, isMigrating]);
+
+  // Calculate Dashboard Stats and Lists
+  const { totalSaleMonth, totalPurchaseMonth, totalProfit, totalReceivable, totalPayable, receivableList, payableList } = useMemo(() => {
+    const getMonthTotal = (contactsList: Contact[]) => {
+      return contactsList.reduce((sum, c) => {
+        return sum + c.records
+          .filter(r => r.date.startsWith(monthPrefix))
+          .reduce((s, r) => s + r.totalPrice, 0);
+      }, 0);
+    };
+
+    const sTotal = getMonthTotal(dashboardData.sales);
+    const pTotal = getMonthTotal(dashboardData.purchases);
+
+    // Calculate Receivables List (Sales)
+    const rList = dashboardData.sales.map(c => {
+      const bill = c.records.filter(r => r.date.startsWith(monthPrefix)).reduce((s, r) => s + r.totalPrice, 0);
+      const paid = (c.payments || []).filter(p => p.date.startsWith(monthPrefix)).reduce((s, p) => s + p.amount, 0);
+      const balance = bill - paid;
+      return { ...c, balance };
+    }).filter(c => c.balance > 0);
+
+    const rTotal = rList.reduce((sum, c) => sum + c.balance, 0);
+
+    // Calculate Payables List (Purchases)
+    const payList = dashboardData.purchases.map(c => {
+      const bill = c.records.filter(r => r.date.startsWith(monthPrefix)).reduce((s, r) => s + r.totalPrice, 0);
+      const paid = (c.payments || []).filter(p => p.date.startsWith(monthPrefix)).reduce((s, p) => s + p.amount, 0);
+      const balance = bill - paid;
+      return { ...c, balance };
+    }).filter(c => c.balance > 0);
+
+    const payTotal = payList.reduce((sum, c) => sum + c.balance, 0);
+
+    return {
+      totalSaleMonth: sTotal,
+      totalPurchaseMonth: pTotal,
+      totalProfit: sTotal - pTotal,
+      totalReceivable: rTotal,
+      totalPayable: payTotal,
+      receivableList: rList,
+      payableList: payList
+    };
+  }, [dashboardData, monthPrefix]);
+
   const getEmail = (user: string) => {
     // If user enters a simple username, append a domain
-    return user.includes('@') ? user : `${user}@randhawa.local`;
+    // Sanitize: remove spaces, special chars, to lowercase
+    if (user.includes('@')) return user;
+    const sanitized = user.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    return `${sanitized}@randhawa.local`;
   };
 
   const handleSignup = async () => {
@@ -197,21 +284,7 @@ const App: React.FC = () => {
     setActiveModule(null);
   };
 
-  const monthPrefix = useMemo(() => {
-    return `${globalDate.getFullYear()}-${String(globalDate.getMonth() + 1).padStart(2, '0')}`;
-  }, [globalDate]);
 
-  const isPastMonth = useMemo(() => {
-    const today = new Date();
-    const currentYear = today.getFullYear();
-    const currentMonth = today.getMonth();
-    const selectedYear = globalDate.getFullYear();
-    const selectedMonth = globalDate.getMonth();
-
-    if (selectedYear < currentYear) return true;
-    if (selectedYear === currentYear && selectedMonth < currentMonth) return true;
-    return false;
-  }, [globalDate]);
 
   const calculateMonthlyBalance = (contact: Contact) => {
     const monthRecords = contact.records.filter(r => r.date.startsWith(monthPrefix));
@@ -482,67 +555,55 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        <div className="w-full max-w-5xl px-6 mt-8">
-          {/* Centered Hero Section */}
-          <div className="bg-white rounded-[3rem] p-12 border border-slate-100 shadow-[0_15px_45px_rgba(0,0,0,0.03)] relative overflow-hidden group text-center flex flex-col items-center justify-center">
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[250px] bg-emerald-50/20 rounded-full blur-[100px] -translate-y-1/2"></div>
+        <div className="w-full max-w-6xl px-6 mt-8 space-y-8">
 
-            <div className="relative z-10 space-y-8">
-              <div className="flex items-center mb-5 justify-center gap-3">
-                <span className="bg-emerald-100 text-emerald-700 text-xs py-1.5 px-6 rounded-full font-black uppercase tracking-widest">
-                  خوش آمدید!
-                </span>
-                <Sparkles className="text-emerald-400" size={24} />
+          {/* Summary Cards Row */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Profit Card */}
+            <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 flex flex-col items-center justify-center relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-bl-full -mr-8 -mt-8 opacity-50 group-hover:scale-110 transition-transform"></div>
+              <p className="text-slate-400 font-black text-xs uppercase tracking-widest mb-2 z-10">ماہانہ منافع (Profit)</p>
+              <h3 className={`text-4xl font-black z-10 tracking-tight ${totalProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                {totalProfit.toLocaleString()}
+                <span className="text-sm text-slate-400 font-bold ml-1">PKR</span>
+              </h3>
+              <div className={`mt-4 p-2 rounded-full ${totalProfit >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'} flex items-center gap-2 text-xs font-black px-4`}>
+                {totalProfit >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                {totalProfit >= 0 ? 'منافع بخش' : 'خسارہ'}
               </div>
+            </div>
 
-              <h2 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tighter leading-tight">
-                رندھاوا ڈیری اینڈ کیٹل فارم
-              </h2>
+            {/* Purchase Card */}
+            <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 flex flex-col items-center justify-center relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-rose-50 rounded-bl-full -mr-8 -mt-8 opacity-50 group-hover:scale-110 transition-transform"></div>
+              <p className="text-slate-400 font-black text-xs uppercase tracking-widest mb-2 z-10">کل خریداری (Purchase)</p>
+              <h3 className="text-4xl font-black text-rose-600 z-10 tracking-tight">
+                {totalPurchaseMonth.toLocaleString()}
+                <span className="text-sm text-slate-400 font-bold ml-1">PKR</span>
+              </h3>
+              <div className="mt-4 p-2 rounded-full bg-rose-100 text-rose-700 flex items-center gap-2 text-xs font-black px-4">
+                <ArrowRight size={14} className="rotate-45" />
+                اخراجات
+              </div>
+            </div>
 
-              <p className="text-slate-500 mt-5 font-bold text-lg max-w-lg mx-auto leading-relaxed">
-                آپ کے ڈیری فارم کا مکمل ڈیجیٹل ریکارڈ برائے{" "}
-                <span className="text-slate-900 underline decoration-emerald-200 underline-offset-4 decoration-4">
-                  {getMonthLabel(globalDate)}
-                </span>
-              </p>
-
-              <div className="flex justify-center pt-4">
-                <button
-                  onClick={handleGenerateGlobalReport}
-                  disabled={isGeneratingGlobalPDF}
-                  className="bg-slate-900 text-white px-10 py-5 rounded-[2rem] font-black text-base flex items-center gap-4 hover:bg-slate-800 transition-all shadow-2xl active:scale-95 disabled:opacity-50"
-                >
-                  {isGeneratingGlobalPDF ? (
-                    <Loader2 size={24} className="animate-spin" />
-                  ) : (
-                    <Download size={24} />
-                  )}
-                  ماہانہ رپورٹ (فی الحال نامکمل)
-                </button>
+            {/* Sale Card */}
+            <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 flex flex-col items-center justify-center relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-bl-full -mr-8 -mt-8 opacity-50 group-hover:scale-110 transition-transform"></div>
+              <p className="text-slate-400 font-black text-xs uppercase tracking-widest mb-2 z-10">کل فروخت (Sale)</p>
+              <h3 className="text-4xl font-black text-emerald-600 z-10 tracking-tight">
+                {totalSaleMonth.toLocaleString()}
+                <span className="text-sm text-slate-400 font-bold ml-1">PKR</span>
+              </h3>
+              <div className="mt-4 p-2 rounded-full bg-emerald-100 text-emerald-700 flex items-center gap-2 text-xs font-black px-4">
+                <TrendingUp size={14} />
+                آمدنی
               </div>
             </div>
           </div>
 
           {/* Module Navigation */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-12 mb-12">
-            <button
-              onClick={() => handleSelectModule('SALE')}
-              className="group relative bg-emerald-600 p-10 rounded-[3rem] shadow-xl shadow-emerald-100 hover:-translate-y-2 transition-all duration-500 overflow-hidden active:scale-95 text-right border-4 border-white"
-            >
-              <div className="relative z-10 flex items-center justify-between">
-                <div className="flex items-center gap-8">
-                  <div className="bg-white p-6 rounded-3xl text-emerald-600 group-hover:rotate-6 transition-transform shadow-lg">
-                    <ShoppingCart size={40} />
-                  </div>
-                  <div>
-                    <h2 className="text-3xl font-black text-white tracking-tighter">دودھ کی فروخت</h2>
-                    <p className="text-emerald-100 text-sm font-black uppercase mt-2 tracking-widest opacity-80">گاہکوں کا ریکارڈ</p>
-                  </div>
-                </div>
-                <ArrowRight className="text-white opacity-40 group-hover:opacity-100" size={32} />
-              </div>
-            </button>
-
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <button
               onClick={() => handleSelectModule('PURCHASE')}
               className="group relative bg-rose-600 p-10 rounded-[3rem] shadow-xl shadow-rose-100 hover:-translate-y-2 transition-all duration-500 overflow-hidden active:scale-95 text-right border-4 border-white"
@@ -560,7 +621,109 @@ const App: React.FC = () => {
                 <ArrowRight className="text-white opacity-40 group-hover:opacity-100" size={32} />
               </div>
             </button>
+
+            <button
+              onClick={() => handleSelectModule('SALE')}
+              className="group relative bg-emerald-600 p-10 rounded-[3rem] shadow-xl shadow-emerald-100 hover:-translate-y-2 transition-all duration-500 overflow-hidden active:scale-95 text-right border-4 border-white"
+            >
+              <div className="relative z-10 flex items-center justify-between">
+                <div className="flex items-center gap-8">
+                  <div className="bg-white p-6 rounded-3xl text-emerald-600 group-hover:rotate-6 transition-transform shadow-lg">
+                    <ShoppingCart size={40} />
+                  </div>
+                  <div>
+                    <h2 className="text-3xl font-black text-white tracking-tighter">دودھ کی فروخت</h2>
+                    <p className="text-emerald-100 text-sm font-black uppercase mt-2 tracking-widest opacity-80">گاہکوں کا ریکارڈ</p>
+                  </div>
+                </div>
+                <ArrowRight className="text-white opacity-40 group-hover:opacity-100" size={32} />
+              </div>
+            </button>
           </div>
+
+          {/* Payable / Receivable Lists Summary */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-10">
+            {/* Payables (Wajib-ul-Ada) - Money we owe to Suppliers */}
+            <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 h-[32rem] flex flex-col">
+              <div className="flex items-center justify-between mb-6 shrink-0">
+                <div className="p-3 bg-rose-50 text-rose-600 rounded-2xl"><ArrowRight className="rotate-45" size={20} /></div>
+                <div className="text-right">
+                  <h3 className="text-xl font-black text-slate-800">واجب الادا رقم</h3>
+                  <p className="text-xs text-rose-500 font-black uppercase tracking-widest bg-rose-50 px-3 py-1 rounded-full inline-block mt-1">سپلائر</p>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
+                {payableList.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-slate-300">
+                    <p className="font-black text-xs uppercase tracking-widest">کوئی ریکارڈ نہیں</p>
+                  </div>
+                ) : (
+                  payableList.map(item => (
+                    <div key={item.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-rose-200 transition-all group">
+                      <div className="flex items-center gap-4">
+                        <div className="text-rose-600 font-black text-lg">
+                          {item.balance.toLocaleString()} <span className="text-[10px] text-slate-400">روپے</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="font-black text-slate-700 text-lg group-hover:text-rose-700 transition-colors">{item.name}</span>
+                        <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-slate-400 font-black text-sm shadow-sm border border-slate-100 uppercase">
+                          {item.name.charAt(0)}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="mt-6 pt-6 border-t border-slate-100 text-center shrink-0">
+                <p className="text-xs text-slate-400 font-black uppercase tracking-widest mb-1">کل واجب الادا رقم</p>
+                <h2 className="text-3xl font-black text-rose-600 tracking-tighter">{totalPayable.toLocaleString()}</h2>
+              </div>
+            </div>
+
+            {/* Receivables (Wasool Talab) - Money Customers owe us */}
+            <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 h-[32rem] flex flex-col">
+              <div className="flex items-center justify-between mb-6 shrink-0">
+                <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl"><ArrowRight className="-rotate-45" size={20} /></div>
+                <div className="text-right">
+                  <h3 className="text-xl font-black text-slate-800">وصول طلب رقم</h3>
+                  <p className="text-xs text-emerald-500 font-black uppercase tracking-widest bg-emerald-50 px-3 py-1 rounded-full inline-block mt-1">گاہک</p>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
+                {receivableList.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-slate-300">
+                    <p className="font-black text-xs uppercase tracking-widest">کوئی ریکارڈ نہیں</p>
+                  </div>
+                ) : (
+                  receivableList.map(item => (
+                    <div key={item.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-emerald-200 transition-all group">
+                      <div className="flex items-center gap-4">
+                        <div className="text-emerald-600 font-black text-lg">
+                          {item.balance.toLocaleString()} <span className="text-[10px] text-slate-400">روپے</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="font-black text-slate-700 text-lg group-hover:text-emerald-700 transition-colors">{item.name}</span>
+                        <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-slate-400 font-black text-sm shadow-sm border border-slate-100 uppercase">
+                          {item.name.charAt(0)}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="mt-6 pt-6 border-t border-slate-100 text-center shrink-0">
+                <p className="text-xs text-slate-400 font-black uppercase tracking-widest mb-1">کل وصول طلب رقم</p>
+                <h2 className="text-3xl font-black text-emerald-600 tracking-tighter">{totalReceivable.toLocaleString()}</h2>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
     );
