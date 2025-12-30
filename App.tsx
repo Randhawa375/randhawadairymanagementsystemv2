@@ -1,0 +1,751 @@
+
+import React, { useState, useEffect, useMemo } from 'react';
+import { Contact, ViewState, ModuleType, User } from './types';
+import { getMonthLabel, getEnglishMonthLabel } from './utils';
+import BuyerProfile from './components/BuyerProfile';
+import { Plus, Users, Milk, DollarSign, X, Settings, Trash2, Wallet, ShoppingCart, TrendingUp, TrendingDown, ChevronLeft, ArrowRight, ChevronRight, Download, Loader2, Sparkles, LogOut, Lock, User as UserIcon } from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { supabase } from './lib/supabase';
+import { api } from './lib/api';
+
+const App: React.FC = () => {
+  const [viewState, setViewState] = useState<ViewState>('AUTH');
+  const [activeModule, setActiveModule] = useState<ModuleType | null>(null);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
+  const [isGeneratingGlobalPDF, setIsGeneratingGlobalPDF] = useState(false);
+
+  // Auth State
+  const [authMode, setAuthMode] = useState<'LOGIN' | 'SIGNUP'>('LOGIN');
+  const [username, setUsername] = useState(''); // Treated as email prefix or full email
+  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [isMigrating, setIsMigrating] = useState(false);
+  const [migrationStatus, setMigrationStatus] = useState('');
+
+  // GLOBAL DATE STATE
+  const [globalDate, setGlobalDate] = useState(new Date());
+
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [newContactName, setNewContactName] = useState('');
+
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  const [editName, setEditName] = useState('');
+
+  const DEFAULT_RATE = 200;
+
+  // Check Session
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setViewState('MAIN_MENU');
+        checkForMigration();
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        setViewState('MAIN_MENU');
+        checkForMigration();
+      } else {
+        setViewState('AUTH');
+        setContacts([]);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const checkForMigration = () => {
+    const saleData = localStorage.getItem('randhawa_sale_v2');
+    const purchaseData = localStorage.getItem('randhawa_purchase_v2');
+
+    if (saleData || purchaseData) {
+      handleMigration(saleData, purchaseData);
+    }
+  };
+
+  const handleMigration = async (saleDataStr: string | null, purchaseDataStr: string | null) => {
+    // Only migrate if we haven't asked this session? 
+    // Or prompt every time until it's gone.
+    if (!window.confirm("پرانا ڈیٹا موجود ہے۔ کیا آپ اسے کلاؤڈ پر منتقل کرنا چاہتے ہیں؟\n\n(Old data found. Migrate to cloud?)")) {
+      if (window.confirm("اگر آپ کینسل کریں گے تو پرانا ڈیٹا ڈیلیٹ ہو جائے گا۔ کیا آپ یقینی طور پر ڈیلیٹ کرنا چاہتے ہیں؟")) {
+        localStorage.removeItem('randhawa_sale_v2');
+        localStorage.removeItem('randhawa_purchase_v2');
+      }
+      return;
+    }
+
+    setIsMigrating(true);
+    try {
+      if (saleDataStr) {
+        setMigrationStatus("فروخت کا ریکارڈ منتقل ہو رہا ہے...");
+        const sales: Contact[] = JSON.parse(saleDataStr);
+        for (const contact of sales) {
+          const newContact = await api.createContact(contact, 'SALE');
+          // Add all records
+          for (const rec of contact.records) {
+            await api.addRecord(newContact.id, rec);
+          }
+          // Add all payments
+          for (const pay of (contact.payments || [])) {
+            await api.addPayment(newContact.id, pay);
+          }
+        }
+        localStorage.removeItem('randhawa_sale_v2');
+      }
+
+      if (purchaseDataStr) {
+        setMigrationStatus("خریداری کا ریکارڈ منتقل ہو رہا ہے...");
+        const purchases: Contact[] = JSON.parse(purchaseDataStr);
+        for (const contact of purchases) {
+          const newContact = await api.createContact(contact, 'PURCHASE');
+          // Add all records
+          for (const rec of contact.records) {
+            await api.addRecord(newContact.id, rec);
+          }
+          // Add all payments
+          for (const pay of (contact.payments || [])) {
+            await api.addPayment(newContact.id, pay);
+          }
+        }
+        localStorage.removeItem('randhawa_purchase_v2');
+      }
+      alert("تمام ڈیٹا کامیابی سے محفوظ ہو گیا!");
+    } catch (e) {
+      console.error(e);
+      alert("ڈیٹا منتقلی میں مسئلہ پیش آیا۔ انٹرنیٹ چیک کریں۔");
+    } finally {
+      setIsMigrating(false);
+      setMigrationStatus("");
+    }
+  };
+
+  // Load Data
+  useEffect(() => {
+    if (activeModule && viewState !== 'AUTH') {
+      const loadData = async () => {
+        try {
+          const data = await api.getContacts(activeModule);
+          setContacts(data);
+        } catch (e) {
+          console.error("Failed to load contacts", e);
+        }
+      };
+      loadData();
+    }
+  }, [activeModule, viewState, isMigrating]);
+
+  const getEmail = (user: string) => {
+    // If user enters a simple username, append a domain
+    return user.includes('@') ? user : `${user}@randhawa.local`;
+  };
+
+  const handleSignup = async () => {
+    if (!username.trim() || !password.trim() || !fullName.trim()) {
+      alert('براہ کرم تمام خانے پُر کریں۔');
+      return;
+    }
+    setAuthLoading(true);
+    try {
+      const { error } = await supabase.auth.signUp({
+        email: getEmail(username),
+        password,
+        options: {
+          data: {
+            username,
+            name: fullName
+          }
+        }
+      });
+      if (error) throw error;
+      alert('اکاؤنٹ بن گیا ہے! براہ کرم لاگ ان کریں۔');
+      setAuthMode('LOGIN');
+    } catch (e: any) {
+      alert(e.message || 'سائن اپ ناکام رہا۔');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogin = async () => {
+    if (!username.trim() || !password.trim()) {
+      alert('براہ کرم یوزر نام اور پاس ورڈ درج کریں۔');
+      return;
+    }
+    setAuthLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: getEmail(username),
+        password,
+      });
+      if (error) throw error;
+      // Session listener will handle navigation
+    } catch (e: any) {
+      alert('لاگ ان ناکام: ' + (e.message || 'غلط تفصیلات'));
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setViewState('AUTH');
+    setActiveModule(null);
+  };
+
+  const monthPrefix = useMemo(() => {
+    return `${globalDate.getFullYear()}-${String(globalDate.getMonth() + 1).padStart(2, '0')}`;
+  }, [globalDate]);
+
+  const isPastMonth = useMemo(() => {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth();
+    const selectedYear = globalDate.getFullYear();
+    const selectedMonth = globalDate.getMonth();
+
+    if (selectedYear < currentYear) return true;
+    if (selectedYear === currentYear && selectedMonth < currentMonth) return true;
+    return false;
+  }, [globalDate]);
+
+  const calculateMonthlyBalance = (contact: Contact) => {
+    const monthRecords = contact.records.filter(r => r.date.startsWith(monthPrefix));
+    const monthPayments = (contact.payments || []).filter(p => p.date.startsWith(monthPrefix));
+
+    const monthBill = monthRecords.reduce((sum, rec) => sum + rec.totalPrice, 0);
+    const monthPaid = monthPayments.reduce((sum, pay) => sum + pay.amount, 0);
+    return monthBill - monthPaid;
+  };
+
+  const handleSelectModule = (type: ModuleType) => {
+    setActiveModule(type);
+    setViewState('DASHBOARD');
+  };
+
+  const handleAddContact = async () => {
+    if (!newContactName.trim() || !activeModule) return;
+
+    try {
+      // Optimistic Update can be added here, but for safety waiting for API
+      const newContact = await api.createContact({
+        id: '', // DB will generate or ignore
+        name: newContactName,
+        pricePerLiter: DEFAULT_RATE,
+        records: [],
+        payments: [],
+        createdAt: Date.now(),
+      }, activeModule);
+
+      setContacts([...contacts, newContact]);
+      setIsAddModalOpen(false);
+      setNewContactName('');
+    } catch (e) {
+      alert("نیا ریکارڈ محفوظ نہیں ہو سکا۔");
+    }
+  };
+
+  const handleUpdateContact = async (updatedContact: Contact) => {
+    // Only used for Name/Rate updates from App or local state sync from Profile
+    const original = contacts.find(c => c.id === updatedContact.id);
+    if (original) {
+      // Only update DB if top-level fields changed
+      if (original.name !== updatedContact.name || original.pricePerLiter !== updatedContact.pricePerLiter) {
+        try {
+          await api.updateContact(updatedContact);
+        } catch (e) {
+          console.error("Failed to update contact info");
+        }
+      }
+    }
+    // Update local state
+    setContacts(contacts.map(c => c.id === updatedContact.id ? updatedContact : c));
+  };
+
+  const openEditModal = (contact: Contact, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isPastMonth) {
+      alert("گزشتہ مہینے کے ریکارڈ میں تبدیلی ممکن نہیں ہے۔");
+      return;
+    }
+    setEditingContact(contact);
+    setEditName(contact.name);
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingContact || !editName.trim()) return;
+    const updated = { ...editingContact, name: editName };
+    await handleUpdateContact(updated);
+    setIsEditModalOpen(false);
+    setEditingContact(null);
+  };
+
+  const handleDeleteContact = async () => {
+    if (!editingContact || !activeModule) return;
+    if (window.confirm(`کیا آپ واقعی "${editingContact.name}" کا ریکارڈ ختم کرنا چاہتے ہیں؟`)) {
+      try {
+        await api.deleteContact(editingContact.id);
+        setContacts(contacts.filter(c => c.id !== editingContact.id));
+        setIsEditModalOpen(false);
+        setEditingContact(null);
+      } catch (e) {
+        alert("حذف نہیں ہو سکا۔");
+      }
+    }
+  };
+
+  const { totalMilk, totalAmount } = useMemo(() => {
+    let m = 0; let a = 0;
+    contacts.forEach(c => {
+      c.records.forEach(rec => {
+        if (rec.date.startsWith(monthPrefix)) {
+          m += rec.totalQuantity || 0; a += rec.totalPrice || 0;
+        }
+      });
+    });
+    return { totalMilk: m, totalAmount: a };
+  }, [contacts, monthPrefix]);
+
+  const isSale = activeModule === 'SALE';
+  const theme = {
+    accentColor: isSale ? 'text-emerald-600' : 'text-rose-600',
+    btnColor: isSale ? 'bg-emerald-600' : 'bg-rose-600',
+    hoverBorder: isSale ? 'hover:border-emerald-200' : 'hover:border-rose-200',
+    label: isSale ? 'دودھ کی فروخت' : 'دودھ کی خریداری',
+    personLabel: isSale ? 'گاہک' : 'سپلائر'
+  };
+
+  const changeMonth = (offset: number) => {
+    setGlobalDate(new Date(globalDate.getFullYear(), globalDate.getMonth() + offset, 1));
+  };
+
+  const handleGenerateGlobalReport = async () => {
+    setIsGeneratingGlobalPDF(true);
+    try {
+      const doc = new jsPDF();
+      const engMonth = getEnglishMonthLabel(globalDate);
+
+      doc.setFontSize(22);
+      doc.setTextColor(20, 20, 20);
+      doc.text("Randhawa Dairy & Cattle Farm", 105, 20, { align: 'center' });
+      doc.setFontSize(11);
+      doc.text("Proprietor: Farhan Randhawa", 105, 27, { align: 'center' });
+
+      doc.setDrawColor(230, 230, 230);
+      doc.line(20, 32, 190, 32);
+
+      doc.setFontSize(13);
+      doc.text(`Monthly Summary Report: ${engMonth}`, 20, 45);
+
+      autoTable(doc, {
+        startY: 50,
+        head: [['Category', 'Total Milk (L)', 'Total Amount (PKR)']],
+        body: [
+          ['Current Module Total', totalMilk, totalAmount.toLocaleString()],
+          ['Note', 'Please check specific modules for details', '-']
+        ],
+        theme: 'striped',
+        headStyles: { fillColor: [51, 65, 85], fontSize: 10 }
+      });
+
+      doc.save(`Monthly_Report_${engMonth}.pdf`);
+    } catch (e) {
+      alert("رپورٹ ڈاؤن لوڈ نہیں ہو سکی۔");
+    } finally {
+      setIsGeneratingGlobalPDF(false);
+    }
+  };
+
+  if (isMigrating) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
+        <Loader2 className="w-16 h-16 text-emerald-600 animate-spin mb-6" />
+        <h2 className="text-2xl font-black text-slate-800">ڈیٹا منتقل ہو رہا ہے...</h2>
+        <p className="text-slate-500 mt-2 font-bold">{migrationStatus}</p>
+        <p className="text-xs text-slate-400 mt-8">براہ کرم ایپ بند نہ کریں</p>
+      </div>
+    );
+  }
+
+  if (viewState === 'AUTH') {
+    return (
+      <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-6 fade-in relative overflow-hidden">
+        {/* Abstract Background Ornaments */}
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-emerald-100 rounded-full blur-[100px] opacity-50"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-100 rounded-full blur-[100px] opacity-50"></div>
+
+        <div className="w-full max-w-md bg-white/90 backdrop-blur-xl rounded-[2.5rem] p-10 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.1)] border border-white relative z-10">
+          <div className="text-center mb-10">
+            <div className="w-20 h-20 bg-emerald-600 rounded-[2rem] mx-auto flex items-center justify-center text-white shadow-2xl mb-6 transform rotate-3 hover:rotate-0 transition-transform duration-500">
+              <Milk size={40} />
+            </div>
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">رندھاوا ڈیری فارم</h1>
+            <p className="text-slate-500 font-bold mt-4 text-base">
+              {authMode === 'LOGIN' ? 'لاگ ان کریں' : 'نیا اکاؤنٹ بنائیں'}
+            </p>
+          </div>
+
+          <div className="space-y-6">
+            {authMode === 'SIGNUP' && (
+              <div className="space-y-2">
+                <label className="block text-right text-xs font-black text-slate-400 uppercase tracking-widest mr-2">پورا نام</label>
+                <div className="relative group">
+                  <input
+                    type="text"
+                    placeholder="اپنا نام لکھیں"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-right font-bold text-slate-900 focus:bg-white focus:border-emerald-500 outline-none transition-all pr-14 text-base"
+                  />
+                  <UserIcon className="absolute top-1/2 right-5 -translate-y-1/2 text-slate-300 group-focus-within:text-emerald-500 transition-colors" size={20} />
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <label className="block text-right text-xs font-black text-slate-400 uppercase tracking-widest mr-2">صارف نام (Username)</label>
+              <div className="relative group">
+                <input
+                  type="text"
+                  placeholder="Username لکھیں"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-right font-bold text-slate-900 focus:bg-white focus:border-emerald-500 outline-none transition-all pr-14 text-base"
+                />
+                <UserIcon className="absolute top-1/2 right-5 -translate-y-1/2 text-slate-300 group-focus-within:text-emerald-500 transition-colors" size={20} />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-right text-xs font-black text-slate-400 uppercase tracking-widest mr-2">پاس ورڈ (کم از کم 6 ہندسے)</label>
+              <div className="relative group">
+                <input
+                  type="password"
+                  placeholder="پاس ورڈ درج کریں"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-right font-bold text-slate-900 focus:bg-white focus:border-emerald-500 outline-none transition-all pr-14 text-base"
+                />
+                <Lock className="absolute top-1/2 right-5 -translate-y-1/2 text-slate-300 group-focus-within:text-emerald-500 transition-colors" size={20} />
+              </div>
+            </div>
+
+            <button
+              onClick={authMode === 'LOGIN' ? handleLogin : handleSignup}
+              disabled={authLoading}
+              className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black text-lg shadow-2xl hover:bg-emerald-600 transition-all active:scale-95 flex items-center justify-center gap-3 group mt-4 disabled:opacity-50"
+            >
+              {authLoading ? <Loader2 className="animate-spin" /> : (authMode === 'LOGIN' ? 'لاگ ان' : 'سائن اپ')}
+              {!authLoading && <ArrowRight className="rotate-180 group-hover:translate-x-1 transition-transform" size={20} />}
+            </button>
+
+            <button
+              onClick={() => { setAuthMode(authMode === 'LOGIN' ? 'SIGNUP' : 'LOGIN'); setPassword(''); }}
+              className="w-full text-emerald-600 font-black text-sm hover:underline py-2"
+            >
+              {authMode === 'LOGIN' ? 'نیا اکاؤنٹ بنانا چاہتے ہیں؟' : 'پہلے سے اکاؤنٹ ہے؟ لاگ ان ہوں'}
+            </button>
+          </div>
+        </div>
+        <p className="mt-12 text-slate-400 text-xs font-black uppercase tracking-[0.3em] relative z-10">Randhawa Dairy & Cattle Farm</p>
+      </div>
+    );
+  }
+
+  if (viewState === 'MAIN_MENU') {
+    return (
+      <div className="min-h-screen bg-slate-50/50 flex flex-col items-center pb-20 fade-in overflow-x-hidden">
+        {/* Top Navbar */}
+        <div className="w-full bg-white px-8 py-4 flex justify-between items-center border-b border-slate-100 shadow-sm sticky top-0 z-50 backdrop-blur-md">
+          <div className="bg-slate-50 px-4 py-2 rounded-full border border-slate-200 flex items-center gap-3 shadow-sm hover:border-emerald-300 transition-all cursor-pointer">
+            <button onClick={() => changeMonth(-1)} className="p-1 text-emerald-600 hover:bg-white rounded-full transition-colors"><ChevronRight size={20} /></button>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+              <span className="text-base font-black text-slate-800">{getMonthLabel(globalDate)}</span>
+            </div>
+            <button onClick={() => changeMonth(1)} className="p-1 text-emerald-600 rotate-180 hover:bg-white rounded-full transition-colors"><ChevronRight size={20} /></button>
+          </div>
+
+          <div className="flex items-center gap-6">
+            <button onClick={handleLogout} className="p-3 bg-slate-50 text-rose-500 rounded-xl hover:bg-rose-50 hover:shadow-inner transition-all border border-slate-100">
+              <LogOut size={20} />
+            </button>
+            <div className="text-right">
+              <h1 className="text-lg font-black text-slate-900 tracking-tighter leading-none">رندھاوا ڈیری فارم</h1>
+              <p className="text-[13] p-2 bg-slate-100 font-bold text-slate-500 mt-3 rounded-full">پروپرائیٹر: فرحان رندھاوا</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="w-full max-w-5xl px-6 mt-8">
+          {/* Centered Hero Section */}
+          <div className="bg-white rounded-[3rem] p-12 border border-slate-100 shadow-[0_15px_45px_rgba(0,0,0,0.03)] relative overflow-hidden group text-center flex flex-col items-center justify-center">
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[250px] bg-emerald-50/20 rounded-full blur-[100px] -translate-y-1/2"></div>
+
+            <div className="relative z-10 space-y-8">
+              <div className="flex items-center mb-5 justify-center gap-3">
+                <span className="bg-emerald-100 text-emerald-700 text-xs py-1.5 px-6 rounded-full font-black uppercase tracking-widest">
+                  خوش آمدید!
+                </span>
+                <Sparkles className="text-emerald-400" size={24} />
+              </div>
+
+              <h2 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tighter leading-tight">
+                رندھاوا ڈیری اینڈ کیٹل فارم
+              </h2>
+
+              <p className="text-slate-500 mt-5 font-bold text-lg max-w-lg mx-auto leading-relaxed">
+                آپ کے ڈیری فارم کا مکمل ڈیجیٹل ریکارڈ برائے{" "}
+                <span className="text-slate-900 underline decoration-emerald-200 underline-offset-4 decoration-4">
+                  {getMonthLabel(globalDate)}
+                </span>
+              </p>
+
+              <div className="flex justify-center pt-4">
+                <button
+                  onClick={handleGenerateGlobalReport}
+                  disabled={isGeneratingGlobalPDF}
+                  className="bg-slate-900 text-white px-10 py-5 rounded-[2rem] font-black text-base flex items-center gap-4 hover:bg-slate-800 transition-all shadow-2xl active:scale-95 disabled:opacity-50"
+                >
+                  {isGeneratingGlobalPDF ? (
+                    <Loader2 size={24} className="animate-spin" />
+                  ) : (
+                    <Download size={24} />
+                  )}
+                  ماہانہ رپورٹ (فی الحال نامکمل)
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Module Navigation */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-12 mb-12">
+            <button
+              onClick={() => handleSelectModule('SALE')}
+              className="group relative bg-emerald-600 p-10 rounded-[3rem] shadow-xl shadow-emerald-100 hover:-translate-y-2 transition-all duration-500 overflow-hidden active:scale-95 text-right border-4 border-white"
+            >
+              <div className="relative z-10 flex items-center justify-between">
+                <div className="flex items-center gap-8">
+                  <div className="bg-white p-6 rounded-3xl text-emerald-600 group-hover:rotate-6 transition-transform shadow-lg">
+                    <ShoppingCart size={40} />
+                  </div>
+                  <div>
+                    <h2 className="text-3xl font-black text-white tracking-tighter">دودھ کی فروخت</h2>
+                    <p className="text-emerald-100 text-sm font-black uppercase mt-2 tracking-widest opacity-80">گاہکوں کا ریکارڈ</p>
+                  </div>
+                </div>
+                <ArrowRight className="text-white opacity-40 group-hover:opacity-100" size={32} />
+              </div>
+            </button>
+
+            <button
+              onClick={() => handleSelectModule('PURCHASE')}
+              className="group relative bg-rose-600 p-10 rounded-[3rem] shadow-xl shadow-rose-100 hover:-translate-y-2 transition-all duration-500 overflow-hidden active:scale-95 text-right border-4 border-white"
+            >
+              <div className="relative z-10 flex items-center justify-between">
+                <div className="flex items-center gap-8">
+                  <div className="bg-white p-6 rounded-3xl text-rose-600 group-hover:rotate-6 transition-transform shadow-lg">
+                    <Wallet size={40} />
+                  </div>
+                  <div>
+                    <h2 className="text-3xl font-black text-white tracking-tighter">دودھ کی خریداری</h2>
+                    <p className="text-rose-100 text-sm font-black uppercase mt-2 tracking-widest opacity-80">سپلائرز کا ریکارڈ</p>
+                  </div>
+                </div>
+                <ArrowRight className="text-white opacity-40 group-hover:opacity-100" size={32} />
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (viewState === 'PROFILE' && selectedContactId) {
+    const contact = contacts.find(c => c.id === selectedContactId);
+    if (contact) {
+      return (
+        <BuyerProfile
+          buyer={contact}
+          moduleType={activeModule!}
+          selectedMonthDate={globalDate}
+          onBack={() => {
+            setViewState('DASHBOARD');
+            setSelectedContactId(null);
+          }}
+          onUpdateBuyer={handleUpdateContact}
+        />
+      );
+    }
+  }
+
+  return (
+    <div className={`min-h-screen bg-slate-50/50 pb-20 fade-in`}>
+      <header className="bg-white border-b border-slate-200 p-8 shadow-sm mb-10 relative">
+        <button
+          onClick={() => setViewState('MAIN_MENU')}
+          className="absolute top-10 left-8 p-4 bg-slate-100 rounded-2xl hover:bg-slate-200 transition-all z-20 active:scale-90"
+        >
+          <ChevronLeft size={24} className="text-slate-700" />
+        </button>
+
+        <div className="text-center relative z-10">
+          <h1 className="text-2xl font-black text-slate-900 mb-1">{theme.label}</h1>
+          <div className="flex items-center justify-center gap-4">
+            <span className="h-px w-14 bg-slate-100"></span>
+            <p className="text-slate-400 text-xs font-black uppercase tracking-[0.25em]">{getMonthLabel(globalDate)}</p>
+            <span className="h-px w-14 bg-slate-100"></span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-6 max-w-md mx-auto mt-10 relative z-10">
+          <div className="bg-slate-50 p-6 rounded-[2rem] text-center border border-slate-100 shadow-sm">
+            <Milk className="mx-auto mb-2 text-slate-300" size={24} />
+            <p className="text-slate-400 text-[10px] mb-1 font-black uppercase tracking-widest">مقدار (لیٹر)</p>
+            <p className="text-2xl font-black text-slate-800 tracking-tight">{totalMilk}</p>
+          </div>
+          <div className="bg-slate-50 p-6 rounded-[2rem] text-center border border-slate-100 shadow-sm">
+            {isSale ? <DollarSign className={`mx-auto mb-2 text-emerald-400`} size={24} /> : <Wallet className={`mx-auto mb-2 text-rose-400`} size={24} />}
+            <p className="text-slate-400 text-[10px] mb-1 font-black uppercase tracking-widest">{isSale ? 'آمدنی' : 'ادائیگی'}</p>
+            <p className={`text-2xl font-black ${theme.accentColor} tracking-tight`}>{totalAmount.toLocaleString()}</p>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-3xl mx-auto px-6">
+        <div className="flex items-center justify-between mb-10">
+          <h2 className="text-xl font-black text-slate-800 flex items-center gap-4">
+            <Users size={28} className="text-slate-400" />
+            فہرست
+          </h2>
+          {!isPastMonth && (
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className={`${theme.btnColor} text-white px-8 py-4 rounded-2xl font-black text-sm flex items-center gap-2 shadow-xl active:scale-95 transition-all hover:brightness-110`}
+            >
+              <Plus size={20} />
+              نیا {theme.personLabel}
+            </button>
+          )}
+        </div>
+
+        <div className="space-y-5">
+          {contacts.length === 0 ? (
+            <div className="text-center py-24 bg-white rounded-[3rem] border border-dashed border-slate-200">
+              <Users className="mx-auto text-slate-100 mb-8" size={80} />
+              <p className="text-slate-300 font-black uppercase tracking-[0.3em] text-xs">کوئی ریکارڈ نہیں ملا</p>
+            </div>
+          ) : (
+            contacts.map(contact => {
+              const balance = calculateMonthlyBalance(contact);
+              return (
+                <div
+                  key={contact.id}
+                  onClick={() => {
+                    setSelectedContactId(contact.id);
+                    setViewState('PROFILE');
+                  }}
+                  className={`bg-white p-6 rounded-[2rem] shadow-sm border border-transparent transition-all cursor-pointer hover:shadow-2xl ${theme.hoverBorder} active:scale-[0.99] flex items-center justify-between group`}
+                >
+                  <div className="flex items-center gap-6">
+                    <div className={`w-14 h-14 ${isSale ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'} rounded-2xl flex items-center justify-center font-black text-2xl shadow-sm group-hover:scale-110 transition-transform`}>
+                      {contact.name.charAt(0)}
+                    </div>
+                    <div className="text-right">
+                      <h3 className="text-xl font-black text-slate-800 leading-tight">{contact.name}</h3>
+                      <div className="flex items-center gap-3 mt-2">
+                        <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">ریٹ: {contact.pricePerLiter}</p>
+                        {balance !== 0 && (
+                          <span className={`text-[11px] font-black px-3 py-1 rounded-full ${balance > 0 ? (isSale ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700') : 'bg-slate-100 text-slate-700'}`}>
+                            {balance > 0 ? 'باقی: ' : 'زیادہ: '}{Math.abs(balance).toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  {!isPastMonth && (
+                    <button
+                      onClick={(e) => openEditModal(contact, e)}
+                      className={`p-4 text-slate-300 hover:text-slate-900 rounded-xl hover:bg-slate-50 transition-colors active:scale-90`}
+                    >
+                      <Settings size={28} />
+                    </button>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      </main>
+
+      {/* Add Modal */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[100] flex items-center justify-center p-8 fade-in">
+          <div className="bg-white rounded-[3rem] w-full max-w-md p-12 shadow-2xl relative">
+            <div className="flex justify-between items-center mb-10">
+              <h3 className="text-2xl font-black text-slate-800">نیا {theme.personLabel}</h3>
+              <button onClick={() => setIsAddModalOpen(false)} className="bg-slate-50 p-2 rounded-full text-slate-400 hover:text-slate-600 transition-all"><X size={24} /></button>
+            </div>
+            <p className="text-right text-xs font-black text-slate-400 mb-3 uppercase tracking-widest">{theme.personLabel} کا پورا نام</p>
+            <input
+              type="text"
+              value={newContactName}
+              onChange={(e) => setNewContactName(e.target.value)}
+              className="w-full p-6 bg-slate-50 text-slate-900 rounded-2xl mb-10 text-right text-2xl font-black outline-none border border-slate-100 focus:bg-white focus:border-emerald-300 transition-all shadow-inner"
+              placeholder={`${theme.personLabel} کا نام`}
+              autoFocus
+            />
+            <button
+              onClick={handleAddContact}
+              className={`w-full ${theme.btnColor} text-white py-6 rounded-2xl font-black text-xl shadow-2xl active:scale-95 transition-all`}
+            >
+              محفوظ کریں
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[100] flex items-center justify-center p-8 fade-in">
+          <div className="bg-white rounded-[3rem] w-full max-w-md p-12 shadow-2xl relative border-t-8 border-slate-900">
+            <div className="flex justify-between items-center mb-10">
+              <h3 className="text-2xl font-black text-slate-800 text-right w-full">نام کی تبدیلی</h3>
+              <button onClick={() => setIsEditModalOpen(false)} className="text-slate-400 absolute left-12 top-14 hover:text-slate-600 transition-all"><X size={28} /></button>
+            </div>
+
+            <div className="space-y-6">
+              <input
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="w-full p-6 bg-slate-800 text-white rounded-2xl text-right text-3xl font-black outline-none shadow-2xl"
+              />
+
+              <button
+                onClick={handleSaveEdit}
+                className={`w-full ${theme.btnColor} text-white py-6 rounded-2xl font-black text-xl shadow-2xl active:scale-95 transition-all`}
+              >
+                محفوظ کریں
+              </button>
+
+              <button
+                onClick={handleDeleteContact}
+                className="w-full bg-rose-50 text-rose-600 py-6 rounded-2xl font-black text-base flex items-center justify-center gap-3 active:scale-95 transition-all border border-rose-100"
+              >
+                حذف کریں <Trash2 size={28} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default App;
