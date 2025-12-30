@@ -557,6 +557,46 @@ const App: React.FC = () => {
 
         <div className="w-full max-w-6xl px-6 mt-8 space-y-8">
 
+          {/* Centered Hero Section */}
+          <div className="bg-white rounded-[3rem] p-12 border border-slate-100 shadow-[0_15px_45px_rgba(0,0,0,0.03)] relative overflow-hidden group text-center flex flex-col items-center justify-center mb-8">
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[250px] bg-emerald-50/20 rounded-full blur-[100px] -translate-y-1/2"></div>
+
+            <div className="relative z-10 space-y-8">
+              <div className="flex items-center mb-5 justify-center gap-3">
+                <span className="bg-emerald-100 text-emerald-700 text-xs py-1.5 px-6 rounded-full font-black uppercase tracking-widest">
+                  خوش آمدید!
+                </span>
+                <Sparkles className="text-emerald-400" size={24} />
+              </div>
+
+              <h2 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tighter leading-tight">
+                رندھاوا ڈیری اینڈ کیٹل فارم
+              </h2>
+
+              <p className="text-slate-500 mt-5 font-bold text-lg max-w-lg mx-auto leading-relaxed">
+                آپ کے ڈیری فارم کا مکمل ڈیجیٹل ریکارڈ برائے{" "}
+                <span className="text-slate-900 underline decoration-emerald-200 underline-offset-4 decoration-4">
+                  {getMonthLabel(globalDate)}
+                </span>
+              </p>
+
+              <div className="flex justify-center pt-4">
+                <button
+                  onClick={handleGenerateGlobalReport}
+                  disabled={isGeneratingGlobalPDF}
+                  className="bg-slate-900 text-white px-10 py-5 rounded-[2rem] font-black text-base flex items-center gap-4 hover:bg-slate-800 transition-all shadow-2xl active:scale-95 disabled:opacity-50"
+                >
+                  {isGeneratingGlobalPDF ? (
+                    <Loader2 size={24} className="animate-spin" />
+                  ) : (
+                    <Download size={24} />
+                  )}
+                  ماہانہ مجموعی رپورٹ ڈاؤن لوڈ کریں
+                </button>
+              </div>
+            </div>
+          </div>
+
           {/* Summary Cards Row */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Profit Card */}
