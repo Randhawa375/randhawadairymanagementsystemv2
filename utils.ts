@@ -24,11 +24,11 @@ export const saveContacts = (type: 'SALE' | 'PURCHASE', contacts: Contact[]) => 
 };
 
 export const formatUrduDate = (dateStr: string): string => {
-  const date = new Date(dateStr);
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
   const days = ['اتوار', 'پیر', 'منگل', 'بدھ', 'جمعرات', 'جمعہ', 'ہفتہ'];
   const dayName = days[date.getDay()];
-  const dayNum = date.getDate();
-  return `${dayNum} - ${dayName}`;
+  return `${d} - ${dayName}`;
 };
 
 export const getMonthLabel = (date: Date): string => {
