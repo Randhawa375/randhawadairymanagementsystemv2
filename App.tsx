@@ -142,7 +142,7 @@ const App: React.FC = () => {
 
   // Load Data
   useEffect(() => {
-    if (activeModule && viewState !== 'AUTH') {
+    if (activeModule) {
       const loadData = async () => {
         try {
           const data = await api.getContacts(activeModule);
@@ -153,7 +153,7 @@ const App: React.FC = () => {
       };
       loadData();
     }
-  }, [activeModule, viewState, isMigrating]);
+  }, [activeModule, isMigrating]);
 
   // Dashboard Data Loading
   const [dashboardData, setDashboardData] = useState<{ sales: Contact[], purchases: Contact[] }>({ sales: [], purchases: [] });
