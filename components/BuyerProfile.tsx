@@ -4,6 +4,7 @@ import { Contact, MilkRecord, ModuleType, Payment } from '../types';
 import { formatUrduDate, getMonthLabel, getEnglishMonthLabel } from '../utils';
 import { ChevronRight, Save, Edit2, X, Download, Milk, Loader2, DollarSign, Wallet, ArrowLeft, History, Plus, Trash2, FileText, ReceiptText } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
+import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { api } from '../lib/api';
@@ -200,49 +201,119 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
   const handleDownloadPDF = async () => {
     setIsGeneratingPDF(true);
     try {
-      const doc = new jsPDF();
+      // Create a temporary container for the report
+      const printContainer = document.createElement('div');
+      printContainer.className = "fixed inset-0 bg-white z-[9999] p-8 font-sans";
+      printContainer.style.width = "210mm"; // A4 Width
+      printContainer.style.minHeight = "297mm";
+      printContainer.style.position = 'absolute';
+      printContainer.style.top = '-9999px'; // Hide off-screen
+      document.body.appendChild(printContainer);
+
+      // Render the content (Construct HTML strings or use ReactDOM.render if complex, but simple HTML is fast)
+      // Since it's React, we can't easily ReactDOM.render in a functional component without side effects.
+      // We will build the innerHTML manually for speed and simplicity.
+
       const engMonth = getEnglishMonthLabel(selectedMonthDate);
-      doc.setFontSize(22);
-      doc.setTextColor(20, 20, 20);
-      doc.text("Randhawa Dairy & Cattle Farm", 105, 20, { align: 'center' });
-      doc.setFontSize(11);
-      doc.text("Proprietor: Farhan Randhawa", 105, 27, { align: 'center' });
-      doc.setDrawColor(240, 240, 240);
-      doc.line(20, 32, 190, 32);
+      const rows = daysInMonth.map(dateStr => {
+        const record = buyer.records.find(r => r.date === dateStr);
+        if (!record || record.totalQuantity <= 0) return '';
+        return `
+            <tr class="border-b border-gray-100">
+              <td class="p-2 text-right border-r border-gray-200">${formatUrduDate(dateStr)}</td>
+              <td class="p-2 text-center text-gray-600">${record.morningQuantity || '-'}</td>
+              <td class="p-2 text-center text-gray-600">${record.eveningQuantity || '-'}</td>
+              <td class="p-2 text-center font-bold text-gray-900 bg-gray-50">${record.totalQuantity}</td>
+              <td class="p-2 text-left font-mono text-gray-700">${record.totalPrice.toLocaleString()}</td>
+            </tr>
+          `;
+      }).join('');
 
-      doc.setFontSize(12);
-      doc.setTextColor(100, 100, 100);
-      doc.text(`Milk Ledger: ${buyer.name.toUpperCase()} (${isSale ? 'Customer' : 'Supplier'})`, 20, 45);
-      doc.text(`Month: ${engMonth}`, 20, 51);
-      doc.text(`Rate: ${buyer.pricePerLiter} PKR/L`, 20, 57);
+      printContainer.innerHTML = `
+        <div style="direction: rtl; font-family: sans-serif;">
+          <!-- Header -->
+          <div class="text-center mb-8 border-b-2 border-gray-100 pb-6">
+            <h1 class="text-3xl font-black text-gray-900 mb-2">رندھاوا ڈیری اینڈ کیٹل فارم</h1>
+            <p class="text-gray-500 font-bold text-lg">پروپرائیٹر: فرحان رندھاوا</p>
+          </div>
 
-      const recordedRows = daysInMonth
-        .map(dateStr => {
-          const record = buyer.records.find(r => r.date === dateStr);
-          if (!record || record.totalQuantity <= 0) return null;
-          return [dateStr, record.morningQuantity, record.eveningQuantity, record.totalQuantity, `${record.totalPrice.toLocaleString()}`];
-        })
-        .filter((row): row is any[] => row !== null);
+          <!-- Meta -->
+          <div class="flex justify-between items-end mb-8 bg-gray-50 p-6 rounded-2xl">
+            <div class="text-left">
+              <p class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">RECORD TYPE</p>
+              <p class="font-bold text-gray-800">MILK LEDGER</p>
+              <p class="text-xs text-gray-400 font-bold uppercase tracking-widest mt-4 mb-1">MONTH</p>
+              <p class="font-bold text-gray-800">${engMonth}</p>
+            </div>
+            <div class="text-right">
+              <p class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">نام</p>
+              <h2 class="text-2xl font-black text-${isSale ? 'emerald' : 'rose'}-600">${buyer.name}</h2>
+              <p class="text-xs text-gray-500 mt-1 font-bold">ریٹ: ${buyer.pricePerLiter} روپے فی لیٹر</p>
+            </div>
+          </div>
 
-      autoTable(doc, {
-        startY: 65,
-        head: [['Date', 'Morning (L)', 'Evening (L)', 'Total (L)', 'Bill (PKR)']],
-        body: recordedRows,
-        theme: 'grid',
-        headStyles: { fillColor: isSale ? [5, 150, 105] : [225, 29, 72], fontSize: 10 }
+          <!-- Table -->
+          <table class="w-full text-right border border-gray-200 rounded-lg overflow-hidden mb-8">
+            <thead class="bg-${isSale ? 'emerald' : 'rose'}-600 text-white">
+              <tr>
+                <th class="p-3 font-bold text-sm border-r border-white/20">تاریخ</th>
+                <th class="p-3 font-bold text-sm text-center">صبح</th>
+                <th class="p-3 font-bold text-sm text-center">شام</th>
+                <th class="p-3 font-bold text-sm text-center bg-black/10">کل</th>
+                <th class="p-3 font-bold text-sm text-left">بل (روپے)</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+
+          <!-- Summary -->
+          <div class="flex justify-end mt-10">
+            <div class="w-64 bg-gray-50 p-6 rounded-2xl border border-gray-200">
+              <div class="flex justify-between mb-2">
+                <span class="text-gray-500 font-bold">کل دودھ</span>
+                <span class="font-black">${monthMilk} لیٹر</span>
+              </div>
+              <div class="flex justify-between mb-4 pb-4 border-b border-gray-200">
+                <span class="text-gray-500 font-bold">کل بل</span>
+                <span class="font-black">${monthBill.toLocaleString()}</span>
+              </div>
+              <div class="flex justify-between mb-2">
+                <span class="text-gray-500 font-bold">وصولی</span>
+                <span class="font-bold text-green-600">${monthPaid.toLocaleString()}</span>
+              </div>
+              <div class="flex justify-between text-lg pt-2">
+                <span class="font-black text-gray-800">بقایا جات</span>
+                <span class="font-black text-${monthBalance > 0 ? (isSale ? 'emerald' : 'rose') : 'blue'}-600">${monthBalance.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Wait a moment for rendering
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Capture
+      const canvas = await html2canvas(printContainer, {
+        scale: 2, // High resolution
+        useCORS: true,
+        backgroundColor: '#ffffff'
       });
 
-      const finalY = (doc as any).lastAutoTable.finalY + 15;
-      doc.setFontSize(12);
-      doc.setTextColor(0, 0, 0);
-      doc.text(`Summary for ${engMonth}:`, 20, finalY);
-      doc.text(`Total Milk: ${monthMilk} Liters`, 20, finalY + 8);
-      doc.text(`Total Bill: ${monthBill.toLocaleString()} PKR`, 20, finalY + 16);
-      doc.text(`Total Paid: ${monthPaid.toLocaleString()} PKR`, 110, finalY + 8);
-      doc.text(`REMAINING BALANCE: ${monthBalance.toLocaleString()} PKR`, 110, finalY + 16);
+      // Cleanup
+      document.body.removeChild(printContainer);
 
-      doc.save(`${buyer.name}_Milk_Ledger_${engMonth}.pdf`);
+      // Generate PDF
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`${buyer.name}_Ledger_${engMonth}.pdf`);
+
     } catch (e) {
+      console.error(e);
       alert("PDF نہیں بن سکی۔");
     } finally {
       setIsGeneratingPDF(false);
@@ -252,44 +323,87 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
   const handleDownloadPaymentPDF = async () => {
     setIsGeneratingPaymentPDF(true);
     try {
-      const doc = new jsPDF();
+      const printContainer = document.createElement('div');
+      printContainer.className = "fixed inset-0 bg-white z-[9999] p-8 font-sans";
+      printContainer.style.width = "210mm";
+      printContainer.style.minHeight = "297mm";
+      printContainer.style.position = 'absolute';
+      printContainer.style.top = '-9999px';
+      document.body.appendChild(printContainer);
+
       const engMonth = getEnglishMonthLabel(selectedMonthDate);
-      doc.setFontSize(22);
-      doc.setTextColor(20, 20, 20);
-      doc.text("Randhawa Dairy & Cattle Farm", 105, 20, { align: 'center' });
-      doc.setFontSize(11);
-      doc.text("Proprietor: Farhan Randhawa", 105, 27, { align: 'center' });
-      doc.setDrawColor(240, 240, 240);
-      doc.line(20, 32, 190, 32);
 
-      doc.setFontSize(14);
-      doc.setTextColor(0, 0, 0);
-      doc.text(`PAYMENT RECORD: ${buyer.name.toUpperCase()}`, 105, 45, { align: 'center' });
-      doc.setFontSize(11);
-      doc.setTextColor(100, 100, 100);
-      doc.text(`Month: ${engMonth}`, 20, 55);
+      const rows = monthPayments.map(p => `
+        <tr class="border-b border-gray-100">
+          <td class="p-3 text-right border-r border-gray-200">${formatUrduDate(p.date)}</td>
+          <td class="p-3 text-left font-mono font-bold text-gray-900">${p.amount.toLocaleString()}</td>
+          <td class="p-3 text-right text-gray-600 text-sm">${p.description || '-'}</td>
+        </tr>
+      `).join('');
 
-      const paymentRows = monthPayments.map(p => [
-        p.date,
-        `${p.amount.toLocaleString()} PKR`,
-        p.description || '-'
-      ]);
+      printContainer.innerHTML = `
+        <div style="direction: rtl; font-family: sans-serif;">
+           <!-- Header -->
+          <div class="text-center mb-8 border-b-2 border-gray-100 pb-6">
+            <h1 class="text-3xl font-black text-gray-900 mb-2">رندھاوا ڈیری اینڈ کیٹل فارم</h1>
+            <p class="text-gray-500 font-bold text-lg">پروپرائیٹر: فرحان رندھاوا</p>
+          </div>
 
-      autoTable(doc, {
-        startY: 65,
-        head: [['Date', 'Amount Paid', 'Description / Notes']],
-        body: paymentRows,
-        theme: 'striped',
-        headStyles: { fillColor: [51, 65, 85], fontSize: 11 }
+          <!-- Meta -->
+          <div class="flex justify-between items-end mb-8 bg-gray-50 p-6 rounded-2xl">
+            <div class="text-left">
+              <p class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">RECORD TYPE</p>
+              <p class="font-bold text-gray-800">PAYMENT HISTORY</p>
+              <p class="text-xs text-gray-400 font-bold uppercase tracking-widest mt-4 mb-1">MONTH</p>
+              <p class="font-bold text-gray-800">${engMonth}</p>
+            </div>
+            <div class="text-right">
+              <p class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">نام</p>
+              <h2 class="text-2xl font-black text-${isSale ? 'emerald' : 'rose'}-600">${buyer.name}</h2>
+            </div>
+          </div>
+
+          <!-- Table -->
+          <table class="w-full text-right border border-gray-200 rounded-lg overflow-hidden mb-8">
+            <thead class="bg-slate-800 text-white">
+              <tr>
+                <th class="p-4 font-bold text-sm border-r border-white/20">تاریخ</th>
+                <th class="p-4 font-bold text-sm text-center">رقم (روپے)</th>
+                <th class="p-4 font-bold text-sm text-right">تفصیل / نوٹ</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows || '<tr><td colspan="3" class="p-8 text-center text-gray-400">کوئی پیمنٹ ریکارڈ نہیں</td></tr>'}
+            </tbody>
+          </table>
+
+          <div class="mt-8 text-center bg-gray-900 text-white p-4 rounded-xl">
+            <p class="text-xs font-bold uppercase tracking-widest opacity-60 mb-1">کل ادا شدہ رقم</p>
+            <p class="text-2xl font-black">${monthPaid.toLocaleString()} PKR</p>
+          </div>
+        </div>
+      `;
+
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      const canvas = await html2canvas(printContainer, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff'
       });
 
-      const finalY = (doc as any).lastAutoTable.finalY + 15;
-      doc.setFontSize(12);
-      doc.setTextColor(0, 0, 0);
-      doc.text(`Total Monthly Payments: ${monthPaid.toLocaleString()} PKR`, 20, finalY);
+      document.body.removeChild(printContainer);
 
-      doc.save(`${buyer.name}_Payments_Report_${engMonth}.pdf`);
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`${buyer.name}_Payments_Report_${engMonth}.pdf`);
+
     } catch (e) {
+      console.error(e);
       alert("پیمنٹ رپورٹ نہیں بن سکی۔");
     } finally {
       setIsGeneratingPaymentPDF(false);
