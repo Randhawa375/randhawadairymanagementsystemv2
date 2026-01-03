@@ -6,6 +6,7 @@ import BuyerProfile from './components/BuyerProfile';
 import { Plus, Users, Milk, DollarSign, X, Settings, Trash2, Wallet, ShoppingCart, TrendingUp, TrendingDown, ChevronLeft, ArrowRight, ChevronRight, Download, Loader2, Sparkles, LogOut, Lock, User as UserIcon } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import html2canvas from 'html2canvas';
 import { supabase } from './lib/supabase';
 import { api } from './lib/api';
 
@@ -400,34 +401,139 @@ const App: React.FC = () => {
   const handleGenerateGlobalReport = async () => {
     setIsGeneratingGlobalPDF(true);
     try {
-      const doc = new jsPDF();
+      const printContainer = document.createElement('div');
+      printContainer.className = "fixed inset-0 bg-white z-[9999] p-8 font-sans";
+      printContainer.style.width = "210mm";
+      printContainer.style.minHeight = "297mm";
+      printContainer.style.position = 'absolute';
+      printContainer.style.top = '-9999px';
+      document.body.appendChild(printContainer);
+
       const engMonth = getEnglishMonthLabel(globalDate);
 
-      doc.setFontSize(22);
-      doc.setTextColor(20, 20, 20);
-      doc.text("Randhawa Dairy & Cattle Farm", 105, 20, { align: 'center' });
-      doc.setFontSize(11);
-      doc.text("Proprietor: Farhan Randhawa", 105, 27, { align: 'center' });
+      // Helper to generate rows
+      const generateRows = (contactsList: Contact[]) => {
+        return contactsList.map(c => {
+          const milk = c.records.filter(r => r.date.startsWith(monthPrefix)).reduce((s, r) => s + r.totalQuantity, 0);
+          const bill = c.records.filter(r => r.date.startsWith(monthPrefix)).reduce((s, r) => s + r.totalPrice, 0);
 
-      doc.setDrawColor(230, 230, 230);
-      doc.line(20, 32, 190, 32);
+          if (milk === 0) return ''; // Skip empty
 
-      doc.setFontSize(13);
-      doc.text(`Monthly Summary Report: ${engMonth}`, 20, 45);
+          return `
+            <tr class="border-b border-gray-100">
+              <td class="p-2 text-right font-bold text-gray-800">${c.name}</td>
+              <td class="p-2 text-center text-gray-600">${milk}</td>
+              <td class="p-2 text-left font-mono text-gray-700">${bill.toLocaleString()}</td>
+            </tr>
+          `;
+        }).join('');
+      };
 
-      autoTable(doc, {
-        startY: 50,
-        head: [['Category', 'Total Milk (L)', 'Total Amount (PKR)']],
-        body: [
-          ['Current Module Total', totalMilk, totalAmount.toLocaleString()],
-          ['Note', 'Please check specific modules for details', '-']
-        ],
-        theme: 'striped',
-        headStyles: { fillColor: [51, 65, 85], fontSize: 10 }
+      const saleRows = generateRows(dashboardData.sales);
+      const purchaseRows = generateRows(dashboardData.purchases);
+
+      printContainer.innerHTML = `
+        <div style="direction: rtl; font-family: sans-serif;">
+          <!-- Header -->
+          <div class="text-center mb-8 border-b-2 border-gray-100 pb-6">
+            <h1 class="text-3xl font-black text-gray-900 mb-2">رندھاوا ڈیری اینڈ کیٹل فارم</h1>
+            <p class="text-gray-500 font-bold text-lg">پروپرائیٹر: فرحان رندھاوا</p>
+          </div>
+
+          <div class="text-center mb-10 bg-gray-50 p-4 rounded-xl">
+            <h2 class="text-xl font-black text-slate-800 uppercase tracking-widest">MONTHLY SUMMARY REPORT</h2>
+            <p class="text-emerald-600 font-bold mt-1">${engMonth}</p>
+          </div>
+
+          <!-- Sales Section -->
+          <div class="mb-8">
+            <div class="flex items-center gap-3 mb-4 border-b border-emerald-100 pb-2">
+              <h3 class="text-lg font-black text-emerald-700">دودھ کی فروخت (Sales)</h3>
+            </div>
+             <table class="w-full text-right border border-gray-200 rounded-lg overflow-hidden mb-4">
+              <thead class="bg-emerald-600 text-white">
+                <tr>
+                  <th class="p-2 font-bold text-sm border-r border-white/20">نام</th>
+                  <th class="p-2 font-bold text-sm text-center">کل دودھ (لیٹر)</th>
+                  <th class="p-2 font-bold text-sm text-left">کل رقم (روپے)</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${saleRows || '<tr><td colspan="3" class="p-4 text-center text-gray-400">کوئی ریکارڈ نہیں</td></tr>'}
+                <tr class="bg-emerald-50 font-black">
+                  <td class="p-3 text-right text-emerald-800">کل میزان</td>
+                  <td class="p-3 text-center text-emerald-800">${totalSaleMonth}</td>
+                  <td class="p-3 text-left text-emerald-800">${totalProfit >= 0 ? totalSaleMonth.toLocaleString() : '-'}</td> 
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Purchase Section -->
+          <div class="mb-8">
+            <div class="flex items-center gap-3 mb-4 border-b border-rose-100 pb-2">
+              <h3 class="text-lg font-black text-rose-700">دودھ کی خریداری (Purchase)</h3>
+            </div>
+             <table class="w-full text-right border border-gray-200 rounded-lg overflow-hidden mb-4">
+              <thead class="bg-rose-600 text-white">
+                <tr>
+                  <th class="p-2 font-bold text-sm border-r border-white/20">نام</th>
+                  <th class="p-2 font-bold text-sm text-center">کل دودھ (لیٹر)</th>
+                  <th class="p-2 font-bold text-sm text-left">کل رقم (روپے)</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${purchaseRows || '<tr><td colspan="3" class="p-4 text-center text-gray-400">کوئی ریکارڈ نہیں</td></tr>'}
+                <tr class="bg-rose-50 font-black">
+                  <td class="p-3 text-right text-rose-800">کل میزان</td>
+                  <td class="p-3 text-center text-rose-800">${totalPurchaseMonth}</td>
+                  <td class="p-3 text-left text-rose-800">${totalPurchaseMonth.toLocaleString()}</td> 
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+           <!-- Grand Total -->
+          <div class="flex justify-end mt-12">
+            <div class="bg-slate-900 text-white p-6 rounded-2xl w-64 shadow-xl">
+               <div class="flex justify-between mb-4 pb-4 border-b border-white/20">
+                <span class="opacity-70 text-sm font-bold">Total Sales</span>
+                <span class="font-black">${totalSaleMonth.toLocaleString()} PKR</span>
+              </div>
+              <div class="flex justify-between mb-4 pb-4 border-b border-white/20">
+                <span class="opacity-70 text-sm font-bold">Total Purchase</span>
+                <span class="font-black">${totalPurchaseMonth.toLocaleString()} PKR</span>
+              </div>
+              <div class="flex justify-between text-xl">
+                <span class="font-black text-emerald-400">Net Profit</span>
+                <span class="font-black text-white">${(totalSaleMonth - totalPurchaseMonth).toLocaleString()} PKR</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      `;
+
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      const canvas = await html2canvas(printContainer, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff'
       });
 
-      doc.save(`Monthly_Report_${engMonth}.pdf`);
+      document.body.removeChild(printContainer);
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Monthly_Summary_${engMonth}.pdf`);
+
     } catch (e) {
+      console.error(e);
       alert("رپورٹ ڈاؤن لوڈ نہیں ہو سکی۔");
     } finally {
       setIsGeneratingGlobalPDF(false);
