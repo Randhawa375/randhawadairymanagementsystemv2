@@ -23,6 +23,16 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isGeneratingPaymentPDF, setIsGeneratingPaymentPDF] = useState(false);
 
+  // Debounce Refs
+  const saveTimeoutsRef = React.useRef<{ [key: string]: NodeJS.Timeout }>({});
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(saveTimeoutsRef.current).forEach(clearTimeout);
+    };
+  }, []);
+
   // Payment UI state
   const [isAddingPayment, setIsAddingPayment] = useState(false);
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
@@ -99,13 +109,25 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
     // Optimistic Update
     onUpdateBuyer({ ...buyer, records: updatedRecords });
 
-    // API Call
-    try {
-      await api.addRecord(buyer.id, newRecord);
-    } catch (e) {
-      console.error("Failed to save record", e);
-      // Revert logic could be added here
+    // API Call (Debounced)
+    // Clear existing timeout for this specific date
+    if (saveTimeoutsRef.current[dateStr]) {
+      clearTimeout(saveTimeoutsRef.current[dateStr]);
     }
+
+    // Set new timeout
+    saveTimeoutsRef.current[dateStr] = setTimeout(async () => {
+      try {
+        await api.addRecord(buyer.id, newRecord);
+        // Optional: Could update state again with server response to ensure sync, 
+        // but for now optimistic is fine as long as errors are handled.
+      } catch (e) {
+        console.error("Failed to save record", e);
+        // Revert logic could be added here if needed
+      } finally {
+        delete saveTimeoutsRef.current[dateStr];
+      }
+    }, 1000); // 1 second delay
   };
 
   const handleSavePayment = async () => {
