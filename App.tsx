@@ -439,9 +439,14 @@ const App: React.FC = () => {
   const handleDownloadReport = async () => {
     setIsGeneratingGlobalPDF(true);
     try {
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
       const printContainer = document.createElement('div');
       printContainer.className = "fixed inset-0 bg-white z-[9999] p-8 font-sans";
       printContainer.style.width = "210mm";
+      // We set a fixed height for the container during capture, but the concept is we capture "pages"
       printContainer.style.minHeight = "297mm";
       printContainer.style.position = 'absolute';
       printContainer.style.top = '-9999px';
@@ -450,12 +455,12 @@ const App: React.FC = () => {
       const engMonth = getEnglishMonthLabel(globalDate);
       const currentMonthStart = `${monthPrefix}-01`;
 
-      // Helper to generate rows with advanced calculations
+      // --- Helper: Generate Rows ---
       const generateRows = (contactsList: Contact[]) => {
         let sumMilk = 0, sumBill = 0, sumPaid = 0, sumBalance = 0;
 
         let rows = contactsList.map((c, index) => {
-          // 1. Previous Balance
+          // 1. Previous Balance (Calculated based on whole history before this month)
           const opening = c.openingBalance || 0;
           const pastBill = c.records
             .filter(r => r.date < currentMonthStart)
@@ -502,106 +507,154 @@ const App: React.FC = () => {
           `;
         }).join('');
 
-        // Totals Row
-        rows += `
-           <tr class="bg-gray-100 font-black text-sm">
-              <td colspan="3" class="p-2 text-right">کل میزان</td>
-              <td class="p-2 text-center">-</td>
-              <td class="p-2 text-center">${sumMilk}</td>
-              <td class="p-2 text-center" dir="ltr">${sumBill.toLocaleString()}</td>
-              <td class="p-2 text-center text-emerald-700" dir="ltr">${sumPaid.toLocaleString()}</td>
-              <td class="p-2 text-left" dir="ltr">${sumBalance.toLocaleString()}</td>
-           </tr>
+        return { rows, totals: { sumMilk, sumBill, sumPaid, sumBalance } };
+      };
+
+      // --- Helper: Render a Single Page Batch ---
+      const renderBatch = async (
+        type: 'SALE' | 'PURCHASE',
+        dataBatch: Contact[],
+        pageIndex: number,
+        totalPages: number,
+        grandTotals?: { sumMilk: number, sumBill: number, sumPaid: number, sumBalance: number }
+      ) => {
+        const title = type === 'SALE' ? 'دودھ کی فروخت (Sales)' : 'دودھ کی خریداری (Purchase)';
+        const colorClass = type === 'SALE' ? 'emerald' : 'rose';
+
+        const { rows, totals } = generateRows(dataBatch);
+
+        // If this is the LAST page for this module, show the Grand Totals row.
+        // Note: The 'totals' returned above are just for this BATCH. 
+        // Ideally we want the totals for the WHOLE set if it's the last page.
+        // Or we just sum up the batch totals? 
+        // Displaying "Page Total" might be confusing. 
+        // Let's pass the pre-calculated GRAND totals to the last page.
+
+        let footerRow = '';
+        if (pageIndex === totalPages - 1 && grandTotals) {
+          footerRow = `
+               <tr class="bg-gray-100 font-black text-sm">
+                  <td colspan="3" class="p-2 text-right">کل میزان (Grand Total)</td>
+                  <td class="p-2 text-center">-</td>
+                  <td class="p-2 text-center">${grandTotals.sumMilk}</td>
+                  <td class="p-2 text-center" dir="ltr">${grandTotals.sumBill.toLocaleString()}</td> 
+                  <td class="p-2 text-center text-emerald-700" dir="ltr">${grandTotals.sumPaid.toLocaleString()}</td>
+                  <td class="p-2 text-left" dir="ltr">${grandTotals.sumBalance.toLocaleString()}</td>
+               </tr>
+            `;
+        }
+
+        printContainer.innerHTML = `
+          <div style="direction: rtl; font-family: sans-serif; height: 100%; display: flex; flex-direction: column;">
+            <!-- Header -->
+            <div class="text-center mb-6 border-b-2 border-gray-100 pb-4">
+              <h1 class="text-2xl font-black text-gray-900 mb-1">رندھاوا ڈیری اینڈ کیٹل فارم</h1>
+              <p class="text-gray-500 font-bold text-sm">پروپرائیٹر: فرحان رندھاوا</p>
+            </div>
+
+            <div class="flex justify-between items-center mb-6 bg-gray-50 p-4 rounded-xl">
+              <div>
+                 <p class="text-xs text-gray-500 font-bold">رپورٹ کی اقسام</p>
+                 <h2 class="text-lg font-black text-slate-800 uppercase tracking-widest">MONTHLY LEDGER</h2>
+                 <p class="text-xs text-gray-400 mt-1">${type} - Page ${pageIndex + 1} of ${totalPages}</p>
+              </div>
+              <div class="text-left">
+                 <p class="text-xs text-emerald-600 font-bold uppercase tracking-widest">MONTH</p>
+                 <p class="text-xl font-black text-emerald-700">${engMonth}</p>
+              </div>
+            </div>
+
+            <div class="mb-4 break-inside-avoid flex-grow">
+              <div class="flex items-center gap-3 mb-2 border-b pb-2 ${colorClass === 'emerald' ? 'border-emerald-100' : 'border-rose-100'}">
+                <h3 class="text-lg font-black ${colorClass === 'emerald' ? 'text-emerald-700' : 'text-rose-700'}">${title}</h3>
+              </div>
+               <table class="w-full text-right border border-gray-200 rounded-lg overflow-hidden mb-4">
+                <thead class="${colorClass === 'emerald' ? 'bg-emerald-600' : 'bg-rose-600'} text-white">
+                  <tr>
+                     <th class="p-2 font-bold text-xs w-10 text-center">#</th>
+                     <th class="p-2 font-bold text-xs text-right">نام</th>
+                     <th class="p-2 font-bold text-xs text-center">ریٹ</th>
+                     <th class="p-2 font-bold text-xs text-center">سابقہ</th>
+                     <th class="p-2 font-bold text-xs text-center">کل دودھ</th>
+                     <th class="p-2 font-bold text-xs text-center">کل بل</th>
+                     <th class="p-2 font-bold text-xs text-center">وصولی/ادائیگی</th>
+                     <th class="p-2 font-bold text-xs text-left">بقایا</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${rows}
+                  ${footerRow}
+                </tbody>
+              </table>
+            </div>
+            
+            <div class="mt-auto pt-4 border-t border-gray-200 text-center text-[10px] text-gray-400">
+              Automated Report - Generated on ${new Date().toLocaleDateString()}
+            </div>
+          </div>
         `;
-        return rows;
+
+        // Wait a tick for rendering
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        const canvas = await html2canvas(printContainer, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff'
+        });
+
+        const imgData = canvas.toDataURL('image/jpeg', 0.85);
+        const imgWidth = pageWidth;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+        pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
       };
 
-      const renderSection = (title: string, colorClass: string, data: Contact[]) => {
-        if (data.length === 0) return '';
-        const rows = generateRows(data);
-        return `
-          <div class="mb-8 break-inside-avoid">
-            <div class="flex items-center gap-3 mb-2 border-b pb-2 ${colorClass === 'emerald' ? 'border-emerald-100' : 'border-rose-100'}">
-              <h3 class="text-lg font-black ${colorClass === 'emerald' ? 'text-emerald-700' : 'text-rose-700'}">${title}</h3>
-            </div>
-             <table class="w-full text-right border border-gray-200 rounded-lg overflow-hidden mb-4">
-              <thead class="${colorClass === 'emerald' ? 'bg-emerald-600' : 'bg-rose-600'} text-white">
-                <tr>
-                   <th class="p-2 font-bold text-xs w-10 text-center">#</th>
-                   <th class="p-2 font-bold text-xs text-right">نام</th>
-                   <th class="p-2 font-bold text-xs text-center">ریٹ</th>
-                   <th class="p-2 font-bold text-xs text-center">سابقہ</th>
-                   <th class="p-2 font-bold text-xs text-center">کل دودھ</th>
-                   <th class="p-2 font-bold text-xs text-center">کل بل</th>
-                   <th class="p-2 font-bold text-xs text-center">وصولی/ادائیگی</th>
-                   <th class="p-2 font-bold text-xs text-left">بقایا</th>
-                </tr>
-              </thead>
-              <tbody>${rows}</tbody>
-            </table>
-          </div>
-         `;
-      };
+      // --- Processing Logic ---
+      const ITEMS_PER_PAGE = 20;
 
-      // Determine content based on activeModule
-      let contentHtml = '';
+      // 1. Process SALES
       if (!activeModule || activeModule === 'SALE') {
-        contentHtml += renderSection('دودھ کی فروخت (Sales)', 'emerald', dashboardData.sales);
+        const salesData = dashboardData.sales;
+        if (salesData.length > 0) {
+          // Calculate Grand Totals once
+          const { totals: grandTotals } = generateRows(salesData);
+
+          const totalPages = Math.ceil(salesData.length / ITEMS_PER_PAGE);
+          for (let i = 0; i < totalPages; i++) {
+            const batch = salesData.slice(i * ITEMS_PER_PAGE, (i + 1) * ITEMS_PER_PAGE);
+
+            // On the very first rendering
+            if (i > 0) pdf.addPage();
+
+            await renderBatch('SALE', batch, i, totalPages, grandTotals);
+          }
+        } else if (activeModule === 'SALE') {
+          // Empty state handling if needed
+        }
       }
+
+      // 2. Process PURCHASES
       if (!activeModule || activeModule === 'PURCHASE') {
-        contentHtml += renderSection('دودھ کی خریداری (Purchase)', 'rose', dashboardData.purchases);
+        const purData = dashboardData.purchases;
+        if (purData.length > 0) {
+          // If we already added sales pages, we need a new page for purchase start 
+          if ((!activeModule && dashboardData.sales.length > 0)) {
+            pdf.addPage();
+          }
+
+          const { totals: grandTotals } = generateRows(purData);
+          const totalPages = Math.ceil(purData.length / ITEMS_PER_PAGE);
+
+          for (let i = 0; i < totalPages; i++) {
+            const batch = purData.slice(i * ITEMS_PER_PAGE, (i + 1) * ITEMS_PER_PAGE);
+            if (i > 0) pdf.addPage();
+            await renderBatch('PURCHASE', batch, i, totalPages, grandTotals);
+          }
+        }
       }
-
-      printContainer.innerHTML = `
-        <div style="direction: rtl; font-family: sans-serif;">
-          <!-- Header -->
-          <div class="text-center mb-6 border-b-2 border-gray-100 pb-4">
-            <h1 class="text-2xl font-black text-gray-900 mb-1">رندھاوا ڈیری اینڈ کیٹل فارم</h1>
-            <p class="text-gray-500 font-bold text-sm">پروپرائیٹر: فرحان رندھاوا</p>
-          </div>
-
-          <div class="flex justify-between items-center mb-6 bg-gray-50 p-4 rounded-xl">
-            <div>
-               <p class="text-xs text-gray-500 font-bold">رپورٹ کی اقسام</p>
-               <h2 class="text-lg font-black text-slate-800 uppercase tracking-widest">MONTHLY LEDGER</h2>
-            </div>
-            <div class="text-left">
-               <p class="text-xs text-emerald-600 font-bold uppercase tracking-widest">MONTH</p>
-               <p class="text-xl font-black text-emerald-700">${engMonth}</p>
-            </div>
-          </div>
-
-          ${contentHtml || '<p class="text-center text-gray-400 mt-10">کوئی ریکارڈ موجود نہیں</p>'}
-          
-          <div class="mt-8 pt-4 border-t border-gray-200 text-center text-[10px] text-gray-400">
-            Automated Report Not intended for legal use.
-          </div>
-        </div>
-      `;
-
-      await new Promise(resolve => setTimeout(resolve, 500)); // Wait for render
-
-      const canvas = await html2canvas(printContainer, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff'
-      });
 
       document.body.removeChild(printContainer);
-
-      const imgData = canvas.toDataURL('image/jpeg', 0.85);
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-      // Single page simple logic (might cut off if too long, but usually standard month fits)
-      // For multi-page, we'd need more complex logic. For now assuming single page fit or basic scaling.
-      if (pdfHeight > pdf.internal.pageSize.getHeight()) {
-        // rudimentary multi-page could be added but let's stick to simple fit for now or just standard addImage
-        // or let it spill. 
-      }
-
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
       pdf.save(`Ledger_Report_${engMonth}.pdf`);
 
     } catch (e) {
