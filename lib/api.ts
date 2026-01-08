@@ -119,6 +119,13 @@ export const api = {
             .eq('id', contact.id);
 
         if (error) throw error;
+
+        // Validation: Verify it stuck
+        const { data: verifyData } = await supabase.from('contacts').select('opening_balance').eq('id', contact.id).single();
+        if (contact.openingBalance && contact.openingBalance !== 0 && (!verifyData || verifyData.opening_balance === 0)) {
+            console.error("CRITICAL: Opening balance update not persisted. Column missing?");
+            alert("Database Warning: Previous Balance was NOT saved. The database schema is missing the 'opening_balance' column. Please run the SQL migration script.");
+        }
     },
 
     async deleteContact(id: string) {
