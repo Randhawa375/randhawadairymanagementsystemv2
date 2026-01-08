@@ -96,7 +96,16 @@ export const api = {
             .single();
 
         if (error) throw error;
-        return mapContact(data);
+
+        const mapped = mapContact(data);
+
+        // Validation: Check if DB actually saved the opening balance
+        if (contact.openingBalance && contact.openingBalance !== 0 && mapped.openingBalance === 0) {
+            console.error("CRITICAL: Opening balance was sent but DB returned 0. Column likely missing.");
+            alert("Database Warning: Previous Balance was NOT saved. The database schema is missing the 'opening_balance' column. Please run the SQL migration script.");
+        }
+
+        return mapped;
     },
 
     async updateContact(contact: Contact) {
