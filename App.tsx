@@ -52,6 +52,7 @@ const App: React.FC = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [editName, setEditName] = useState('');
+  const [editOpeningBalance, setEditOpeningBalance] = useState('');
 
   const DEFAULT_RATE = 200;
 
@@ -374,12 +375,13 @@ const App: React.FC = () => {
     }
     setEditingContact(contact);
     setEditName(contact.name);
+    setEditOpeningBalance((contact.openingBalance || 0).toString());
     setIsEditModalOpen(true);
   };
 
   const handleSaveEdit = async () => {
     if (!editingContact || !editName.trim()) return;
-    const updated = { ...editingContact, name: editName };
+    const updated = { ...editingContact, name: editName, openingBalance: parseFloat(editOpeningBalance) || 0 };
     await handleUpdateContact(updated);
     setIsEditModalOpen(false);
     setEditingContact(null);
@@ -1081,6 +1083,17 @@ const App: React.FC = () => {
                 onChange={(e) => setEditName(e.target.value)}
                 className="w-full p-6 bg-slate-800 text-white rounded-2xl text-right text-3xl font-black outline-none shadow-2xl"
               />
+
+              <div>
+                <p className="text-right text-xs font-black text-slate-400 mb-2 uppercase tracking-widest">{theme.personLabel} کا سابقہ بیلنس</p>
+                <input
+                  type="number"
+                  value={editOpeningBalance}
+                  onChange={(e) => setEditOpeningBalance(e.target.value)}
+                  className="w-full p-6 bg-slate-800 text-white rounded-2xl text-right text-3xl font-black outline-none shadow-2xl transition-all focus:ring-4 ring-slate-700"
+                  placeholder="0"
+                />
+              </div>
 
               <button
                 onClick={handleSaveEdit}
