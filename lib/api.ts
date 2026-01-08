@@ -8,6 +8,7 @@ const mapContact = (data: any): Contact => ({
     pricePerLiter: Number(data.price_per_liter),
     records: [],
     payments: [],
+    openingBalance: Number(data.opening_balance || 0),
     createdAt: new Date(data.created_at).getTime(),
 });
 
@@ -84,6 +85,7 @@ export const api = {
             name: contact.name,
             type: type,
             price_per_liter: contact.pricePerLiter,
+            opening_balance: contact.openingBalance || 0,
         };
         if (contact.id) payload.id = contact.id;
 
@@ -103,6 +105,7 @@ export const api = {
             .update({
                 name: contact.name,
                 price_per_liter: contact.pricePerLiter,
+                opening_balance: contact.openingBalance || 0,
             })
             .eq('id', contact.id);
 

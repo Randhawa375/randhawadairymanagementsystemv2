@@ -24,6 +24,7 @@ create table contacts (
   name text not null,
   type text not null check (type in ('SALE', 'PURCHASE')),
   price_per_liter numeric not null default 0,
+  opening_balance numeric default 0,
   created_at timestamptz default now()
 );
 

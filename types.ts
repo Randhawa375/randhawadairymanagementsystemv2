@@ -23,6 +23,7 @@ export interface Contact {
   pricePerLiter: number;
   records: MilkRecord[];
   payments?: Payment[]; // Optional for backward compatibility
+  openingBalance?: number; // Initial pending payment/arrears
   createdAt: number;
 }
 

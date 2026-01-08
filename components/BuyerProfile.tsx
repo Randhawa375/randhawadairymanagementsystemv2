@@ -215,10 +215,24 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
     return (buyer.payments || []).filter(p => p.date.startsWith(currentMonthPrefix));
   }, [buyer.payments, currentMonthPrefix]);
 
+  const previousBalance = useMemo(() => {
+    const opening = buyer.openingBalance || 0;
+    const currentPrefix = `${selectedMonthDate.getFullYear()}-${String(selectedMonthDate.getMonth() + 1).padStart(2, '0')}`;
+
+    // Calculate past records/payments (Strictly before this month)
+    const pastRecords = buyer.records.filter(r => r.date < `${currentPrefix}-01`);
+    const pastBill = pastRecords.reduce((sum, r) => sum + r.totalPrice, 0);
+
+    const pastPayments = (buyer.payments || []).filter(p => p.date < `${currentPrefix}-01`);
+    const pastPaid = pastPayments.reduce((sum, p) => sum + p.amount, 0);
+
+    return opening + pastBill - pastPaid;
+  }, [buyer, selectedMonthDate]);
+
   const monthMilk = monthRecords.reduce((sum, r) => sum + r.totalQuantity, 0);
   const monthBill = monthRecords.reduce((sum, r) => sum + r.totalPrice, 0);
   const monthPaid = monthPayments.reduce((sum, p) => sum + p.amount, 0);
-  const monthBalance = monthBill - monthPaid;
+  const totalBalance = previousBalance + monthBill - monthPaid;
 
   const handleDownloadPDF = async () => {
     setIsGeneratingPDF(true);
@@ -237,7 +251,23 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
       // We will build the innerHTML manually for speed and simplicity.
 
       const engMonth = getEnglishMonthLabel(selectedMonthDate);
-      const rows = daysInMonth.map(dateStr => {
+
+      let tableRows = '';
+
+      // Add Previous Balance Row
+      if (previousBalance !== 0) {
+        tableRows += `
+            <tr class="bg-gray-50 border-b border-gray-100">
+              <td class="p-2 text-right border-r border-gray-200 font-bold text-gray-500">سابقہ بیلنس</td>
+              <td class="p-2 text-center text-gray-400">-</td>
+              <td class="p-2 text-center text-gray-400">-</td>
+              <td class="p-2 text-center text-gray-400">-</td>
+              <td class="p-2 text-left font-mono font-bold text-gray-700">${previousBalance.toLocaleString()}</td>
+            </tr>
+        `;
+      }
+
+      tableRows += daysInMonth.map(dateStr => {
         const record = buyer.records.find(r => r.date === dateStr);
         if (!record || record.totalQuantity <= 0) return '';
         return `
@@ -285,7 +315,7 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
                 <th class="p-3 font-bold text-sm text-left">بل (روپے)</th>
               </tr>
             </thead>
-            <tbody>${rows}</tbody>
+            <tbody>${tableRows}</tbody>
           </table>
 
           <!-- Summary -->
@@ -305,7 +335,7 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
               </div>
               <div class="flex justify-between text-lg pt-2">
                 <span class="font-black text-gray-800">بقایا جات</span>
-                <span class="font-black text-${monthBalance > 0 ? (isSale ? 'emerald' : 'rose') : 'blue'}-600">${monthBalance.toLocaleString()}</span>
+                <span class="font-black text-${totalBalance > 0 ? (isSale ? 'emerald' : 'rose') : 'blue'}-600">${totalBalance.toLocaleString()}</span>
               </div>
             </div>
           </div>
@@ -626,11 +656,11 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
           </div>
           <div className="w-px h-12 bg-slate-100"></div>
           <div className="text-center">
-            <span className={`text-3xl font-black tracking-tighter ${monthBalance > 0 ? (isSale ? 'text-emerald-600' : 'text-rose-600') : (monthBalance < 0 ? 'text-blue-600' : 'text-slate-300')}`}>
-              {Math.abs(monthBalance).toLocaleString()}
+            <span className={`text-3xl font-black tracking-tighter ${totalBalance > 0 ? (isSale ? 'text-emerald-600' : 'text-rose-600') : (totalBalance < 0 ? 'text-blue-600' : 'text-slate-300')}`}>
+              {Math.abs(totalBalance).toLocaleString()}
             </span>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              {monthBalance > 0 ? 'باقی رقم' : (monthBalance < 0 ? 'ایڈوانس' : 'حساب برابر')}
+              {totalBalance > 0 ? 'باقی رقم' : (totalBalance < 0 ? 'ایڈوانس' : 'حساب برابر')}
             </p>
           </div>
         </div>

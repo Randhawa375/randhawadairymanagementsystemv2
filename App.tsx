@@ -47,6 +47,7 @@ const App: React.FC = () => {
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newContactName, setNewContactName] = useState('');
+  const [newContactOpeningBalance, setNewContactOpeningBalance] = useState('');
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
@@ -194,10 +195,25 @@ const App: React.FC = () => {
     const pTotal = getMonthTotal(dashboardData.purchases);
 
     // Calculate Receivables List (Sales)
+    // Calculate Receivables List (Sales)
+    const currentMonthEndPrefix = `${monthPrefix}-31`; // Simple upper bound for string comparison
+
+    const calculateCumulativeBalance = (c: Contact) => {
+      const opening = c.openingBalance || 0;
+
+      const totalBill = c.records
+        .filter(r => r.date <= currentMonthEndPrefix)
+        .reduce((sum, r) => sum + r.totalPrice, 0);
+
+      const totalPaid = (c.payments || [])
+        .filter(p => p.date <= currentMonthEndPrefix)
+        .reduce((sum, p) => sum + p.amount, 0);
+
+      return opening + totalBill - totalPaid;
+    };
+
     const rList = dashboardData.sales.map(c => {
-      const bill = c.records.filter(r => r.date.startsWith(monthPrefix)).reduce((s, r) => s + r.totalPrice, 0);
-      const paid = (c.payments || []).filter(p => p.date.startsWith(monthPrefix)).reduce((s, p) => s + p.amount, 0);
-      const balance = bill - paid;
+      const balance = calculateCumulativeBalance(c);
       return { ...c, balance };
     }).filter(c => c.balance > 0);
 
@@ -205,9 +221,7 @@ const App: React.FC = () => {
 
     // Calculate Payables List (Purchases)
     const payList = dashboardData.purchases.map(c => {
-      const bill = c.records.filter(r => r.date.startsWith(monthPrefix)).reduce((s, r) => s + r.totalPrice, 0);
-      const paid = (c.payments || []).filter(p => p.date.startsWith(monthPrefix)).reduce((s, p) => s + p.amount, 0);
-      const balance = bill - paid;
+      const balance = calculateCumulativeBalance(c);
       return { ...c, balance };
     }).filter(c => c.balance > 0);
 
@@ -288,12 +302,22 @@ const App: React.FC = () => {
 
 
   const calculateMonthlyBalance = (contact: Contact) => {
-    const monthRecords = contact.records.filter(r => r.date.startsWith(monthPrefix));
-    const monthPayments = (contact.payments || []).filter(p => p.date.startsWith(monthPrefix));
+    // This function is for the contact list card view. 
+    // It creates the small badge showing "Balance: X".
+    // Should this be Monthly or Cumulative?
+    // Users generally want to know Total Outstanding when looking at the list.
+    const opening = contact.openingBalance || 0;
+    const currentMonthEndPrefix = `${monthPrefix}-31`;
 
-    const monthBill = monthRecords.reduce((sum, rec) => sum + rec.totalPrice, 0);
-    const monthPaid = monthPayments.reduce((sum, pay) => sum + pay.amount, 0);
-    return monthBill - monthPaid;
+    const totalBill = contact.records
+      .filter(r => r.date <= currentMonthEndPrefix)
+      .reduce((sum, r) => sum + r.totalPrice, 0);
+
+    const totalPaid = (contact.payments || [])
+      .filter(p => p.date <= currentMonthEndPrefix)
+      .reduce((sum, p) => sum + p.amount, 0);
+
+    return opening + totalBill - totalPaid;
   };
 
   const handleSelectModule = (type: ModuleType) => {
@@ -310,6 +334,7 @@ const App: React.FC = () => {
         id: '', // DB will generate or ignore
         name: newContactName,
         pricePerLiter: DEFAULT_RATE,
+        openingBalance: parseFloat(newContactOpeningBalance) || 0,
         records: [],
         payments: [],
         createdAt: Date.now(),
@@ -318,6 +343,7 @@ const App: React.FC = () => {
       setContacts([...contacts, newContact]);
       setIsAddModalOpen(false);
       setNewContactName('');
+      setNewContactOpeningBalance('');
     } catch (e) {
       alert("نیا ریکارڈ محفوظ نہیں ہو سکا۔");
     }
@@ -998,17 +1024,37 @@ const App: React.FC = () => {
           <div className="bg-white rounded-[3rem] w-full max-w-md p-12 shadow-2xl relative">
             <div className="flex justify-between items-center mb-10">
               <h3 className="text-2xl font-black text-slate-800">نیا {theme.personLabel}</h3>
-              <button onClick={() => setIsAddModalOpen(false)} className="bg-slate-50 p-2 rounded-full text-slate-400 hover:text-slate-600 transition-all"><X size={24} /></button>
+              <button onClick={() => { setIsAddModalOpen(false); setNewContactName(''); setNewContactOpeningBalance(''); }} className="bg-slate-50 p-2 rounded-full text-slate-400 hover:text-slate-600 transition-all"><X size={24} /></button>
             </div>
-            <p className="text-right text-xs font-black text-slate-400 mb-3 uppercase tracking-widest">{theme.personLabel} کا پورا نام</p>
-            <input
-              type="text"
-              value={newContactName}
-              onChange={(e) => setNewContactName(e.target.value)}
-              className="w-full p-6 bg-slate-50 text-slate-900 rounded-2xl mb-10 text-right text-2xl font-black outline-none border border-slate-100 focus:bg-white focus:border-emerald-300 transition-all shadow-inner"
-              placeholder={`${theme.personLabel} کا نام`}
-              autoFocus
-            />
+
+            <div className="space-y-4 mb-8">
+              <div>
+                <p className="text-right text-xs font-black text-slate-400 mb-3 uppercase tracking-widest">{theme.personLabel} کا پورا نام</p>
+                <input
+                  type="text"
+                  value={newContactName}
+                  onChange={(e) => setNewContactName(e.target.value)}
+                  className="w-full p-5 bg-slate-50 text-slate-900 rounded-2xl text-right text-xl font-black outline-none border border-slate-100 focus:bg-white focus:border-emerald-300 transition-all shadow-inner"
+                  placeholder={`${theme.personLabel} کا نام`}
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <p className="text-right text-xs font-black text-slate-400 mb-3 uppercase tracking-widest">سابقہ بیلنس (اگر کوئی ہے)</p>
+                <input
+                  type="number"
+                  value={newContactOpeningBalance}
+                  onChange={(e) => setNewContactOpeningBalance(e.target.value)}
+                  className="w-full p-5 bg-slate-50 text-slate-900 rounded-2xl text-right text-xl font-black outline-none border border-slate-100 focus:bg-white focus:border-emerald-300 transition-all shadow-inner"
+                  placeholder="0"
+                />
+                <p className="text-right text-[10px] text-slate-400 mt-2 font-bold px-1">
+                  مثبت رقم = صارف نے پیسے دینے ہیں (وصول طلب) <br />
+                  منفی رقم (-) = آپ نے پیسے دینے ہیں (واجب الادا)
+                </p>
+              </div>
+            </div>
             <button
               onClick={handleAddContact}
               className={`w-full ${theme.btnColor} text-white py-6 rounded-2xl font-black text-xl shadow-2xl active:scale-95 transition-all`}
