@@ -519,6 +519,21 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
                   </>
                 )}
               </div>
+
+              {/* Previous Balance Banner */}
+              {!isEditingRate && previousBalance !== 0 && (
+                <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
+                  <span className={`text-xs font-black uppercase tracking-widest px-3 py-1 rounded-full ${previousBalance > 0 ? (isSale ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700') : 'bg-slate-100 text-slate-500'}`}>
+                    {previousBalance > 0 ? 'سابقہ وصولی (Receivable)' : 'سابقہ واجب الادا (Payable)'}
+                  </span>
+                  <div className="text-right">
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-0.5">سابقہ بیلنس</p>
+                    <p className={`text-xl font-black ${previousBalance > 0 ? (isSale ? 'text-emerald-600' : 'text-rose-600') : 'text-slate-400'}`}>
+                      {Math.abs(previousBalance).toLocaleString()} <span className="text-[10px] text-slate-400">PKR</span>
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="px-5 pb-8">

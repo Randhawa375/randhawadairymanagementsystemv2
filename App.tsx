@@ -228,12 +228,22 @@ const App: React.FC = () => {
 
     const payTotal = payList.reduce((sum, c) => sum + c.balance, 0);
 
+    // User wants "Main Dashboard" to sum both balances?
+    // The previous implementation of totalSaleMonth / totalPurchaseMonth was JUST for this month.
+    // If user wants "Total Outstanding" we have that in rTotal / payTotal.
+    // Let's ensure the Profit card reflects NET position if desired, or stick to Monthly Profit?
+    // The user said "show in the dashboard that it is the previous balance And it should add the both balances"
+    // This implies the totals at the top might be misleading if they only show monthly.
+    // Let's add independent stats for "Total Receivable" and "Total Payable" to the main cards? 
+    // Or keep the cards as "Monthly" and rely on the list totals (which we just fixed).
+    // The user said "Add both balances". I will assume rTotal and payTotal (which are cumulative) should be prominent.
+
     return {
       totalSaleMonth: sTotal,
       totalPurchaseMonth: pTotal,
-      totalProfit: sTotal - pTotal,
-      totalReceivable: rTotal,
-      totalPayable: payTotal,
+      totalProfit: sTotal - pTotal, // Keep this as Monthly Profit finding
+      totalReceivable: rTotal, // Cumulative
+      totalPayable: payTotal, // Cumulative
       receivableList: rList,
       payableList: payList
     };
