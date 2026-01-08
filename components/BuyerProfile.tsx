@@ -671,6 +671,13 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
           </div>
           <div className="w-px h-12 bg-slate-100"></div>
           <div className="text-center">
+            <span className={`text-xl font-black ${previousBalance > 0 ? (isSale ? 'text-emerald-600' : 'text-rose-600') : 'text-slate-400'}`}>
+              {Math.abs(previousBalance).toLocaleString()}
+            </span>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">سابقہ بیلنس</p>
+          </div>
+          <div className="w-px h-12 bg-slate-100"></div>
+          <div className="text-center">
             <span className={`text-3xl font-black tracking-tighter ${totalBalance > 0 ? (isSale ? 'text-emerald-600' : 'text-rose-600') : (totalBalance < 0 ? 'text-blue-600' : 'text-slate-300')}`}>
               {Math.abs(totalBalance).toLocaleString()}
             </span>
