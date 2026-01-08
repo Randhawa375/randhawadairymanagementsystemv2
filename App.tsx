@@ -365,7 +365,7 @@ const App: React.FC = () => {
     const original = contacts.find(c => c.id === updatedContact.id);
     if (original) {
       // Only update DB if top-level fields changed
-      if (original.name !== updatedContact.name || original.pricePerLiter !== updatedContact.pricePerLiter) {
+      if (original.name !== updatedContact.name || original.pricePerLiter !== updatedContact.pricePerLiter || original.openingBalance !== updatedContact.openingBalance) {
         try {
           await api.updateContact(updatedContact);
         } catch (e) {
