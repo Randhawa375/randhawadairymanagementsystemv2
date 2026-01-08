@@ -637,18 +637,18 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
       </div>
 
       {/* Summary Footer */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-slate-100 p-6 flex items-center justify-between shadow-[0_-10px_35px_rgba(0,0,0,0.06)] z-40">
-        <div className="flex gap-4">
+      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-slate-100 px-2 py-3 md:p-6 flex items-center justify-between shadow-[0_-10px_35px_rgba(0,0,0,0.06)] z-40">
+        <div className="flex gap-2 md:gap-4 shrink-0">
           <button
             onClick={handleDownloadPDF}
             disabled={isGeneratingPDF}
             className="flex flex-col items-center group disabled:opacity-50"
             title="مکمل لیجر ڈاؤن لوڈ کریں"
           >
-            <div className="p-4 rounded-2xl bg-slate-900 text-white shadow-xl shadow-slate-100 group-active:scale-90 transition-transform">
-              {isGeneratingPDF ? <Loader2 className="animate-spin" size={24} /> : <FileText size={24} />}
+            <div className="p-2 md:p-4 rounded-2xl bg-slate-900 text-white shadow-xl shadow-slate-100 group-active:scale-90 transition-transform">
+              {isGeneratingPDF ? <Loader2 className="animate-spin" size={18} /> : <FileText size={18} />}
             </div>
-            <span className="text-[9px] font-black mt-2 uppercase tracking-widest text-slate-400">Ledger</span>
+            <span className="text-[8px] md:text-[9px] font-black mt-1 md:mt-2 uppercase tracking-widest text-slate-400">Ledger</span>
           </button>
 
           <button
@@ -657,31 +657,31 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
             className="flex flex-col items-center group disabled:opacity-50"
             title="صرف پیمنٹ رپورٹ ڈاؤن لوڈ کریں"
           >
-            <div className="p-4 rounded-2xl bg-emerald-600 text-white shadow-xl shadow-emerald-50 group-active:scale-90 transition-transform">
-              {isGeneratingPaymentPDF ? <Loader2 className="animate-spin" size={24} /> : <ReceiptText size={24} />}
+            <div className="p-2 md:p-4 rounded-2xl bg-emerald-600 text-white shadow-xl shadow-emerald-50 group-active:scale-90 transition-transform">
+              {isGeneratingPaymentPDF ? <Loader2 className="animate-spin" size={18} /> : <ReceiptText size={18} />}
             </div>
-            <span className="text-[9px] font-black mt-2 uppercase tracking-widest text-emerald-500">Payments</span>
+            <span className="text-[8px] md:text-[9px] font-black mt-1 md:mt-2 uppercase tracking-widest text-emerald-500">Payments</span>
           </button>
         </div>
 
-        <div className="text-right flex items-center gap-8">
-          <div className="text-center">
-            <span className="text-xl font-black text-slate-900 tracking-tight">{monthPaid.toLocaleString()}</span>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">کل ادا شدہ</p>
+        <div className="text-right flex items-center gap-1.5 md:gap-8 overflow-hidden">
+          <div className="text-center min-w-[50px]">
+            <span className="text-sm md:text-xl font-black text-slate-900 tracking-tight">{monthPaid.toLocaleString()}</span>
+            <p className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest truncate">ادا شدہ</p>
           </div>
-          <div className="w-px h-12 bg-slate-100"></div>
-          <div className="text-center">
-            <span className={`text-xl font-black ${previousBalance > 0 ? (isSale ? 'text-emerald-600' : 'text-rose-600') : 'text-slate-400'}`}>
+          <div className="w-px h-6 md:h-12 bg-slate-100"></div>
+          <div className="text-center min-w-[50px]">
+            <span className={`text-sm md:text-xl font-black ${previousBalance > 0 ? (isSale ? 'text-emerald-600' : 'text-rose-600') : 'text-slate-400'}`}>
               {Math.abs(previousBalance).toLocaleString()}
             </span>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">سابقہ بیلنس</p>
+            <p className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest truncate">سابقہ بیلنس</p>
           </div>
-          <div className="w-px h-12 bg-slate-100"></div>
-          <div className="text-center">
-            <span className={`text-3xl font-black tracking-tighter ${totalBalance > 0 ? (isSale ? 'text-emerald-600' : 'text-rose-600') : (totalBalance < 0 ? 'text-blue-600' : 'text-slate-300')}`}>
+          <div className="w-px h-6 md:h-12 bg-slate-100"></div>
+          <div className="text-center min-w-[60px]">
+            <span className={`text-lg md:text-3xl font-black tracking-tighter ${totalBalance > 0 ? (isSale ? 'text-emerald-600' : 'text-rose-600') : (totalBalance < 0 ? 'text-blue-600' : 'text-slate-300')}`}>
               {Math.abs(totalBalance).toLocaleString()}
             </span>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            <p className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest truncate">
               {totalBalance > 0 ? 'باقی رقم' : (totalBalance < 0 ? 'ایڈوانس' : 'حساب برابر')}
             </p>
           </div>
