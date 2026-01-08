@@ -975,6 +975,15 @@ const App: React.FC = () => {
           <ChevronLeft size={24} className="text-slate-700" />
         </button>
 
+        <button
+          onClick={handleDownloadReport}
+          disabled={isGeneratingGlobalPDF}
+          className="absolute top-10 right-8 p-4 bg-slate-100 rounded-2xl hover:bg-slate-200 transition-all z-20 active:scale-90 flex items-center gap-2 text-slate-700 font-black text-xs"
+        >
+          {isGeneratingGlobalPDF ? <Loader2 className="animate-spin" size={20} /> : <Download size={20} />}
+          PDF
+        </button>
+
         <div className="text-center relative z-10">
           <h1 className="text-2xl font-black text-slate-900 mb-1">{theme.label}</h1>
           <div className="flex items-center justify-center gap-4">
@@ -1009,10 +1018,11 @@ const App: React.FC = () => {
             <button
               onClick={handleDownloadReport}
               disabled={isGeneratingGlobalPDF}
-              className="bg-white text-slate-500 border border-slate-200 p-4 rounded-2xl hover:bg-slate-50 hover:text-slate-700 transition-all shadow-sm active:scale-95 disabled:opacity-50"
+              className="bg-white text-slate-500 border border-slate-200 px-6 py-4 rounded-2xl hover:bg-slate-50 hover:text-slate-700 transition-all shadow-sm active:scale-95 disabled:opacity-50 flex items-center gap-2 font-black"
               title="Download PDF Report"
             >
               {isGeneratingGlobalPDF ? <Loader2 className="animate-spin" size={20} /> : <Download size={20} />}
+              رپورٹ
             </button>
 
             {!isPastMonth && (
