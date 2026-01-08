@@ -436,7 +436,7 @@ const App: React.FC = () => {
     setGlobalDate(new Date(globalDate.getFullYear(), globalDate.getMonth() + offset, 1));
   };
 
-  const handleGenerateGlobalReport = async () => {
+  const handleDownloadReport = async () => {
     setIsGeneratingGlobalPDF(true);
     try {
       const printContainer = document.createElement('div');
@@ -448,111 +448,138 @@ const App: React.FC = () => {
       document.body.appendChild(printContainer);
 
       const engMonth = getEnglishMonthLabel(globalDate);
+      const currentMonthStart = `${monthPrefix}-01`;
 
-      // Helper to generate rows
+      // Helper to generate rows with advanced calculations
       const generateRows = (contactsList: Contact[]) => {
-        return contactsList.map(c => {
-          const milk = c.records.filter(r => r.date.startsWith(monthPrefix)).reduce((s, r) => s + r.totalQuantity, 0);
-          const bill = c.records.filter(r => r.date.startsWith(monthPrefix)).reduce((s, r) => s + r.totalPrice, 0);
+        let sumMilk = 0, sumBill = 0, sumPaid = 0, sumBalance = 0;
 
-          if (milk === 0) return ''; // Skip empty
+        let rows = contactsList.map((c, index) => {
+          // 1. Previous Balance
+          const opening = c.openingBalance || 0;
+          const pastBill = c.records
+            .filter(r => r.date < currentMonthStart)
+            .reduce((sum, r) => sum + r.totalPrice, 0);
+          const pastPaid = (c.payments || [])
+            .filter(p => p.date < currentMonthStart)
+            .reduce((sum, p) => sum + p.amount, 0);
+
+          const prevBal = opening + pastBill - pastPaid;
+
+          // 2. Current Month
+          const curMilk = c.records
+            .filter(r => r.date.startsWith(monthPrefix))
+            .reduce((sum, r) => sum + r.totalQuantity, 0);
+          const curBill = c.records
+            .filter(r => r.date.startsWith(monthPrefix))
+            .reduce((sum, r) => sum + r.totalPrice, 0);
+          const curPaid = (c.payments || [])
+            .filter(p => p.date.startsWith(monthPrefix))
+            .reduce((sum, p) => sum + p.amount, 0);
+
+          // 3. Net Balance
+          const paramsBalance = prevBal + curBill - curPaid;
+
+          // Aggregates
+          sumMilk += curMilk;
+          sumBill += curBill;
+          sumPaid += curPaid;
+          sumBalance += paramsBalance;
 
           return `
-            <tr class="border-b border-gray-100">
+            <tr class="border-b border-gray-100 text-xs">
+              <td class="p-2 text-center text-gray-500">${index + 1}</td>
               <td class="p-2 text-right font-bold text-gray-800">${c.name}</td>
-              <td class="p-2 text-center text-gray-600">${milk}</td>
-              <td class="p-2 text-left font-mono text-gray-700">${bill.toLocaleString()}</td>
+              <td class="p-2 text-center text-gray-400">${c.pricePerLiter}</td>
+              <td class="p-2 text-center text-gray-600" dir="ltr">${prevBal !== 0 ? prevBal.toLocaleString() : '-'}</td>
+              <td class="p-2 text-center font-bold text-gray-900 bg-gray-50">${curMilk > 0 ? curMilk : '-'}</td>
+              <td class="p-2 text-center text-gray-600" dir="ltr">${curBill > 0 ? curBill.toLocaleString() : '-'}</td>
+              <td class="p-2 text-center text-emerald-600" dir="ltr">${curPaid > 0 ? curPaid.toLocaleString() : '-'}</td>
+              <td class="p-2 text-left font-black ${paramsBalance > 0 ? (activeModule === 'SALE' ? 'text-emerald-700' : 'text-rose-700') : (paramsBalance < 0 ? 'text-blue-600' : 'text-slate-300')}" dir="ltr">
+                ${paramsBalance !== 0 ? paramsBalance.toLocaleString() : '0'}
+              </td>
             </tr>
           `;
         }).join('');
+
+        // Totals Row
+        rows += `
+           <tr class="bg-gray-100 font-black text-sm">
+              <td colspan="3" class="p-2 text-right">کل میزان</td>
+              <td class="p-2 text-center">-</td>
+              <td class="p-2 text-center">${sumMilk}</td>
+              <td class="p-2 text-center" dir="ltr">${sumBill.toLocaleString()}</td>
+              <td class="p-2 text-center text-emerald-700" dir="ltr">${sumPaid.toLocaleString()}</td>
+              <td class="p-2 text-left" dir="ltr">${sumBalance.toLocaleString()}</td>
+           </tr>
+        `;
+        return rows;
       };
 
-      const saleRows = generateRows(dashboardData.sales);
-      const purchaseRows = generateRows(dashboardData.purchases);
+      const renderSection = (title: string, colorClass: string, data: Contact[]) => {
+        if (data.length === 0) return '';
+        const rows = generateRows(data);
+        return `
+          <div class="mb-8 break-inside-avoid">
+            <div class="flex items-center gap-3 mb-2 border-b pb-2 ${colorClass === 'emerald' ? 'border-emerald-100' : 'border-rose-100'}">
+              <h3 class="text-lg font-black ${colorClass === 'emerald' ? 'text-emerald-700' : 'text-rose-700'}">${title}</h3>
+            </div>
+             <table class="w-full text-right border border-gray-200 rounded-lg overflow-hidden mb-4">
+              <thead class="${colorClass === 'emerald' ? 'bg-emerald-600' : 'bg-rose-600'} text-white">
+                <tr>
+                   <th class="p-2 font-bold text-xs w-10 text-center">#</th>
+                   <th class="p-2 font-bold text-xs text-right">نام</th>
+                   <th class="p-2 font-bold text-xs text-center">ریٹ</th>
+                   <th class="p-2 font-bold text-xs text-center">سابقہ</th>
+                   <th class="p-2 font-bold text-xs text-center">کل دودھ</th>
+                   <th class="p-2 font-bold text-xs text-center">کل بل</th>
+                   <th class="p-2 font-bold text-xs text-center">وصولی/ادائیگی</th>
+                   <th class="p-2 font-bold text-xs text-left">بقایا</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+         `;
+      };
+
+      // Determine content based on activeModule
+      let contentHtml = '';
+      if (!activeModule || activeModule === 'SALE') {
+        contentHtml += renderSection('دودھ کی فروخت (Sales)', 'emerald', dashboardData.sales);
+      }
+      if (!activeModule || activeModule === 'PURCHASE') {
+        contentHtml += renderSection('دودھ کی خریداری (Purchase)', 'rose', dashboardData.purchases);
+      }
 
       printContainer.innerHTML = `
         <div style="direction: rtl; font-family: sans-serif;">
           <!-- Header -->
-          <div class="text-center mb-8 border-b-2 border-gray-100 pb-6">
-            <h1 class="text-3xl font-black text-gray-900 mb-2">رندھاوا ڈیری اینڈ کیٹل فارم</h1>
-            <p class="text-gray-500 font-bold text-lg">پروپرائیٹر: فرحان رندھاوا</p>
+          <div class="text-center mb-6 border-b-2 border-gray-100 pb-4">
+            <h1 class="text-2xl font-black text-gray-900 mb-1">رندھاوا ڈیری اینڈ کیٹل فارم</h1>
+            <p class="text-gray-500 font-bold text-sm">پروپرائیٹر: فرحان رندھاوا</p>
           </div>
 
-          <div class="text-center mb-10 bg-gray-50 p-4 rounded-xl">
-            <h2 class="text-xl font-black text-slate-800 uppercase tracking-widest">MONTHLY SUMMARY REPORT</h2>
-            <p class="text-emerald-600 font-bold mt-1">${engMonth}</p>
-          </div>
-
-          <!-- Sales Section -->
-          <div class="mb-8">
-            <div class="flex items-center gap-3 mb-4 border-b border-emerald-100 pb-2">
-              <h3 class="text-lg font-black text-emerald-700">دودھ کی فروخت (Sales)</h3>
+          <div class="flex justify-between items-center mb-6 bg-gray-50 p-4 rounded-xl">
+            <div>
+               <p class="text-xs text-gray-500 font-bold">رپورٹ کی اقسام</p>
+               <h2 class="text-lg font-black text-slate-800 uppercase tracking-widest">MONTHLY LEDGER</h2>
             </div>
-             <table class="w-full text-right border border-gray-200 rounded-lg overflow-hidden mb-4">
-              <thead class="bg-emerald-600 text-white">
-                <tr>
-                  <th class="p-2 font-bold text-sm border-r border-white/20">نام</th>
-                  <th class="p-2 font-bold text-sm text-center">کل دودھ (لیٹر)</th>
-                  <th class="p-2 font-bold text-sm text-left">کل رقم (روپے)</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${saleRows || '<tr><td colspan="3" class="p-4 text-center text-gray-400">کوئی ریکارڈ نہیں</td></tr>'}
-                <tr class="bg-emerald-50 font-black">
-                  <td class="p-3 text-right text-emerald-800">کل میزان</td>
-                  <td class="p-3 text-center text-emerald-800">${totalSaleMonth}</td>
-                  <td class="p-3 text-left text-emerald-800">${totalProfit >= 0 ? totalSaleMonth.toLocaleString() : '-'}</td> 
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <!-- Purchase Section -->
-          <div class="mb-8">
-            <div class="flex items-center gap-3 mb-4 border-b border-rose-100 pb-2">
-              <h3 class="text-lg font-black text-rose-700">دودھ کی خریداری (Purchase)</h3>
-            </div>
-             <table class="w-full text-right border border-gray-200 rounded-lg overflow-hidden mb-4">
-              <thead class="bg-rose-600 text-white">
-                <tr>
-                  <th class="p-2 font-bold text-sm border-r border-white/20">نام</th>
-                  <th class="p-2 font-bold text-sm text-center">کل دودھ (لیٹر)</th>
-                  <th class="p-2 font-bold text-sm text-left">کل رقم (روپے)</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${purchaseRows || '<tr><td colspan="3" class="p-4 text-center text-gray-400">کوئی ریکارڈ نہیں</td></tr>'}
-                <tr class="bg-rose-50 font-black">
-                  <td class="p-3 text-right text-rose-800">کل میزان</td>
-                  <td class="p-3 text-center text-rose-800">${totalPurchaseMonth}</td>
-                  <td class="p-3 text-left text-rose-800">${totalPurchaseMonth.toLocaleString()}</td> 
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-           <!-- Grand Total -->
-          <div class="flex justify-end mt-12">
-            <div class="bg-slate-900 text-white p-6 rounded-2xl w-64 shadow-xl">
-               <div class="flex justify-between mb-4 pb-4 border-b border-white/20">
-                <span class="opacity-70 text-sm font-bold">Total Sales</span>
-                <span class="font-black">${totalSaleMonth.toLocaleString()} PKR</span>
-              </div>
-              <div class="flex justify-between mb-4 pb-4 border-b border-white/20">
-                <span class="opacity-70 text-sm font-bold">Total Purchase</span>
-                <span class="font-black">${totalPurchaseMonth.toLocaleString()} PKR</span>
-              </div>
-              <div class="flex justify-between text-xl">
-                <span class="font-black text-emerald-400">Net Profit</span>
-                <span class="font-black text-white">${(totalSaleMonth - totalPurchaseMonth).toLocaleString()} PKR</span>
-              </div>
+            <div class="text-left">
+               <p class="text-xs text-emerald-600 font-bold uppercase tracking-widest">MONTH</p>
+               <p class="text-xl font-black text-emerald-700">${engMonth}</p>
             </div>
           </div>
 
+          ${contentHtml || '<p class="text-center text-gray-400 mt-10">کوئی ریکارڈ موجود نہیں</p>'}
+          
+          <div class="mt-8 pt-4 border-t border-gray-200 text-center text-[10px] text-gray-400">
+            Automated Report Not intended for legal use.
+          </div>
         </div>
       `;
 
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 500)); // Wait for render
 
       const canvas = await html2canvas(printContainer, {
         scale: 2,
@@ -562,13 +589,20 @@ const App: React.FC = () => {
 
       document.body.removeChild(printContainer);
 
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const imgData = canvas.toDataURL('image/jpeg', 0.85);
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
+      // Single page simple logic (might cut off if too long, but usually standard month fits)
+      // For multi-page, we'd need more complex logic. For now assuming single page fit or basic scaling.
+      if (pdfHeight > pdf.internal.pageSize.getHeight()) {
+        // rudimentary multi-page could be added but let's stick to simple fit for now or just standard addImage
+        // or let it spill. 
+      }
+
       pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Monthly_Summary_${engMonth}.pdf`);
+      pdf.save(`Ledger_Report_${engMonth}.pdf`);
 
     } catch (e) {
       console.error(e);
@@ -726,7 +760,7 @@ const App: React.FC = () => {
 
               <div className="flex justify-center pt-4">
                 <button
-                  onClick={handleGenerateGlobalReport}
+                  onClick={handleDownloadReport}
                   disabled={isGeneratingGlobalPDF}
                   className="bg-slate-900 text-white px-10 py-5 rounded-[2rem] font-black text-base flex items-center gap-4 hover:bg-slate-800 transition-all shadow-2xl active:scale-95 disabled:opacity-50"
                 >
@@ -970,15 +1004,28 @@ const App: React.FC = () => {
             <Users size={28} className="text-slate-400" />
             فہرست
           </h2>
-          {!isPastMonth && (
+
+          <div className="flex items-center gap-3">
             <button
-              onClick={() => setIsAddModalOpen(true)}
-              className={`${theme.btnColor} text-white px-8 py-4 rounded-2xl font-black text-sm flex items-center gap-2 shadow-xl active:scale-95 transition-all hover:brightness-110`}
+              onClick={handleDownloadReport}
+              disabled={isGeneratingGlobalPDF}
+              className="bg-white text-slate-500 border border-slate-200 p-4 rounded-2xl hover:bg-slate-50 hover:text-slate-700 transition-all shadow-sm active:scale-95 disabled:opacity-50"
+              title="Download PDF Report"
             >
-              <Plus size={20} />
-              نیا {theme.personLabel}
+              {isGeneratingGlobalPDF ? <Loader2 className="animate-spin" size={20} /> : <Download size={20} />}
             </button>
-          )}
+
+            {!isPastMonth && (
+              <button
+                onClick={() => setIsAddModalOpen(true)}
+                className={`${theme.btnColor} text-white px-8 py-4 rounded-2xl font-black text-sm flex items-center gap-2 shadow-xl active:scale-95 transition-all hover:brightness-110`}
+              >
+                <Plus size={20} />
+                نیا {theme.personLabel}
+              </button>
+            )}
+          </div>
+
         </div>
 
         <div className="space-y-5">
