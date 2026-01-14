@@ -6,6 +6,7 @@ export interface MilkRecord {
   eveningQuantity: number;
   totalQuantity: number; // Sum of morning + evening
   totalPrice: number;
+  pricePerLiter?: number; // Snapshot of price at time of record
   timestamp: number;
 }
 

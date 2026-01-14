@@ -20,6 +20,7 @@ const mapRecord = (data: any): MilkRecord => ({
     eveningQuantity: Number(data.evening_quantity),
     totalQuantity: Number(data.total_quantity),
     totalPrice: Number(data.total_price),
+    pricePerLiter: data.price_per_liter ? Number(data.price_per_liter) : undefined,
     timestamp: new Date(data.created_at).getTime(),
 });
 
@@ -147,12 +148,18 @@ export const api = {
             .maybeSingle();
 
         if (existing) {
-            const { error } = await supabase.from('milk_records').update({
+            const updatePayload: any = {
                 morning_quantity: record.morningQuantity,
                 evening_quantity: record.eveningQuantity,
-                total_quantity: record.totalQuantity, // Database stored column (even if computed, good to store cache)
+                total_quantity: record.totalQuantity,
                 total_price: record.totalPrice,
-            }).eq('id', existing.id);
+            };
+            // Only update price if it's explicitly provided in the record object
+            if (record.pricePerLiter !== undefined) {
+                updatePayload.price_per_liter = record.pricePerLiter;
+            }
+
+            const { error } = await supabase.from('milk_records').update(updatePayload).eq('id', existing.id);
             if (error) throw error;
         } else {
             const { error } = await supabase.from('milk_records').insert({
@@ -163,6 +170,7 @@ export const api = {
                 evening_quantity: record.eveningQuantity,
                 total_quantity: record.totalQuantity,
                 total_price: record.totalPrice,
+                price_per_liter: record.pricePerLiter // Save the snapshot
             });
             if (error) throw error;
         }

@@ -83,12 +83,23 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
       const rec = updatedRecords[index];
       const m = field === 'morning' ? val : rec.morningQuantity;
       const e = field === 'evening' ? val : rec.eveningQuantity;
+
+      // Determine effective rate to preserve history
+      let effectiveRate = buyer.pricePerLiter;
+      if (rec.pricePerLiter !== undefined) {
+        effectiveRate = rec.pricePerLiter;
+      } else if (rec.totalQuantity > 0 && rec.totalPrice > 0) {
+        // Legacy record: Calculate implied rate
+        effectiveRate = rec.totalPrice / rec.totalQuantity;
+      }
+
       newRecord = {
         ...rec,
         morningQuantity: m,
         eveningQuantity: e,
         totalQuantity: m + e,
-        totalPrice: Math.round((m + e) * buyer.pricePerLiter)
+        totalPrice: Math.round((m + e) * effectiveRate),
+        pricePerLiter: effectiveRate // Ensure we save this snapshot
       };
       updatedRecords[index] = newRecord;
     } else {
@@ -101,6 +112,7 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
         eveningQuantity: e,
         totalQuantity: m + e,
         totalPrice: Math.round((m + e) * buyer.pricePerLiter),
+        pricePerLiter: buyer.pricePerLiter, // Snapshot current rate
         timestamp: Date.now()
       };
       updatedRecords.push(newRecord);
