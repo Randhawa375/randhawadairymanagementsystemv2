@@ -310,7 +310,7 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
           <!-- Header -->
           <div class="text-center mb-6 border-b-2 border-gray-100 pb-4">
             <h1 class="text-3xl font-black text-gray-900 mb-2">رندھاوا ڈیری اینڈ کیٹل فارم</h1>
-            <p class="text-gray-500 font-bold text-lg">پروپرائیٹر: فرحان رندھاوا</p>
+            <p class="text-gray-500 font-bold text-lg">پروپرائیٹر: چوہدری یوسف رندھاوا</p>
           </div>
 
           <!-- Meta -->
@@ -440,7 +440,7 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
            <!-- Header -->
           <div class="text-center mb-8 border-b-2 border-gray-100 pb-6">
             <h1 class="text-3xl font-black text-gray-900 mb-2">رندھاوا ڈیری اینڈ کیٹل فارم</h1>
-            <p class="text-gray-500 font-bold text-lg">پروپرائیٹر: فرحان رندھاوا</p>
+            <p class="text-gray-500 font-bold text-lg">پروپرائیٹر: چوہدری یوسف رندھاوا</p>
           </div>
 
           <!-- Meta -->
