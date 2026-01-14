@@ -359,11 +359,15 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
           <!-- Summary -->
           <div class="flex justify-end mt-10">
             <div class="w-64 bg-gray-50 p-6 rounded-2xl border border-gray-200">
+               <div class="flex justify-between mb-2 pb-2 border-b border-gray-200">
+                <span class="text-gray-500 font-bold">سابقہ بیلنس</span>
+                <span class="font-bold text-gray-700">${previousBalance.toLocaleString()}</span>
+              </div>
               <div class="flex justify-between mb-2">
                 <span class="text-gray-500 font-bold">کل دودھ</span>
                 <span class="font-black">${monthMilk} لیٹر</span>
               </div>
-              <div class="flex justify-between mb-4 pb-4 border-b border-gray-200">
+              <div class="flex justify-between mb-2">
                 <span class="text-gray-500 font-bold">کل بل</span>
                 <span class="font-black">${monthBill.toLocaleString()}</span>
               </div>
