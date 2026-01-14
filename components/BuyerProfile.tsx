@@ -479,26 +479,15 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
     const newRate = parseFloat(tempRate);
     if (isNaN(newRate) || newRate < 0) return;
 
-    // Snapshot Strategy:
-    // When changing the global rate, we must ensure all EXISTING non-empty records 
-    // have their 'own' rate locked in, so they don't accidentally adopt the new rate 
-    // if we were relying on fallbacks.
+    // GLOBAL UPDATE STRATEGY:
+    // Update ALL records (Past & Present) to the new rate.
     const updatedRecords = buyer.records.map(r => {
-      // If already has a snapshot, keep it
-      if (r.pricePerLiter !== undefined) return r;
-
-      // If legacy record (no snapshot), verify it has data
-      if (r.totalQuantity > 0 && r.totalPrice > 0) {
-        const impliedRate = Math.round(r.totalPrice / r.totalQuantity);
-        // Lock this implied rate
-        return { ...r, pricePerLiter: impliedRate };
-      }
-
-      // If record is empty/zero, it's fine to adopt the new rate contextually for future edits,
-      // or we can lock it to the OLD rate. 
-      // Let's leave it undefined so it picks up the *new* default when edited next time?
-      // Actually, cleaner to just return as is.
-      return r;
+      const newPrice = Math.round(r.totalQuantity * newRate);
+      return {
+        ...r,
+        pricePerLiter: newRate,
+        totalPrice: newPrice
+      };
     });
 
     // Update Local State with Locked Records + New Global Price
@@ -512,9 +501,11 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
 
     try {
       await api.updateContact({ ...buyer, pricePerLiter: newRate });
-      // Note: We are NOT saving the 'backfilled' records to DB here to save bandwidth/complexity.
-      // They are saved in Local State. If the user edits a record, it will save the snapshot then.
-      // This solves the "Runtime" issue the user sees.
+
+      // Update ALL records in DB
+      const recordsToSave = updatedRecords.filter(r => r.totalQuantity > 0);
+      const promises = recordsToSave.map(rec => api.addRecord(buyer.id, rec));
+      await Promise.all(promises);
     } catch (e) {
       console.error("Failed to update rate", e);
       alert("ریٹ اپ ڈیٹ نہیں ہو سکا۔");
