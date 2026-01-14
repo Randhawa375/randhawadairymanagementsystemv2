@@ -565,7 +565,14 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
                       <tr key={dateStr} className="group bg-white hover:bg-slate-50 transition-all shadow-sm">
                         <td className="p-4 rounded-r-2xl border-y border-r border-slate-50">
                           <div className="text-sm font-black text-slate-800">{formatUrduDate(dateStr)}</div>
-                          {record && record.totalPrice > 0 && <div className={`text-[10px] font-black ${colorClass}`}>{record.totalPrice.toLocaleString()} PKR</div>}
+                          {record && record.totalPrice > 0 && (
+                            <div className={`text-[10px] font-black ${colorClass}`}>
+                              {record.totalPrice.toLocaleString()} PKR
+                              <span className="text-slate-400 font-normal ml-1">
+                                (@ {record.pricePerLiter || (record.totalQuantity ? Math.round(record.totalPrice / record.totalQuantity) : buyer.pricePerLiter)})
+                              </span>
+                            </div>
+                          )}
                         </td>
                         <td className="p-2 border-y border-slate-50">
                           <input
@@ -573,7 +580,10 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
                             disabled={isPastMonth}
                             value={record?.morningQuantity || ''}
                             placeholder="0"
-                            onChange={(e) => handleRecordUpdate(dateStr, 'morning', e.target.value)}
+                            onChange={(e) => {
+                              console.log("Updating record", dateStr, e.target.value);
+                              handleRecordUpdate(dateStr, 'morning', e.target.value);
+                            }}
                             className={`w-16 p-3 text-center bg-slate-50 rounded-xl font-black text-lg text-slate-900 focus:bg-white focus:ring-4 ${ringClass}/10 outline-none border-2 border-transparent focus:border-emerald-500/20 transition-all disabled:opacity-50`}
                           />
                         </td>
