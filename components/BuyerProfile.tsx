@@ -397,13 +397,37 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
       // Cleanup
       document.body.removeChild(printContainer);
 
-      // Generate PDF
+      // Generate PDF (Multi-Page Support)
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
       const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+
+      const ratio = pageWidth / imgWidth;
+      const scaledHeight = imgHeight * ratio;
+
+      let heightLeft = scaledHeight;
+      let position = 0;
+      let pageCount = 0;
+
+      // First Page
+      pdf.addImage(imgData, 'JPEG', 0, position, pageWidth, scaledHeight);
+      heightLeft -= pageHeight;
+      pageCount++;
+
+      // Subsequent Pages
+      while (heightLeft > 0) {
+        position = heightLeft - scaledHeight; // Negative offset moves image up
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, -(pageHeight * pageCount), pageWidth, scaledHeight);
+        heightLeft -= pageHeight;
+        pageCount++;
+      }
+
       pdf.save(`${buyer.name}_Ledger_${engMonth}.pdf`);
 
     } catch (e) {
