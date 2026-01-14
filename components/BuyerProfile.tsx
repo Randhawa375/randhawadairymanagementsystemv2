@@ -289,10 +289,26 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
           `;
       }).join('');
 
+      // ... [existing milk table construction] ...
+
+      // Construct Payments Table Rows
+      let paymentRows = '';
+      if (monthPayments.length > 0) {
+        paymentRows = monthPayments.map(p => `
+          <tr class="border-b border-gray-100">
+            <td class="p-2 text-right border-r border-gray-200">${formatUrduDate(p.date)}</td>
+            <td class="p-2 text-center text-gray-600">${p.description || '-'}</td>
+            <td class="p-2 text-left font-mono font-bold text-green-600">${p.amount.toLocaleString()}</td>
+          </tr>
+        `).join('');
+      } else {
+        paymentRows = '<tr><td colspan="3" class="p-4 text-center text-gray-400 text-xs">اس ماہ کوئی وصولی نہیں ہوئی</td></tr>';
+      }
+
       printContainer.innerHTML = `
         <div style="direction: rtl; font-family: sans-serif;">
           <!-- Header -->
-          <div class="text-center mb-8 border-b-2 border-gray-100 pb-6">
+          <div class="text-center mb-6 border-b-2 border-gray-100 pb-4">
             <h1 class="text-3xl font-black text-gray-900 mb-2">رندھاوا ڈیری اینڈ کیٹل فارم</h1>
             <p class="text-gray-500 font-bold text-lg">پروپرائیٹر: فرحان رندھاوا</p>
           </div>
@@ -312,18 +328,32 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
             </div>
           </div>
 
-          <!-- Table -->
-          <table class="w-full text-right border border-gray-200 rounded-lg overflow-hidden mb-8">
+          <!-- Milk Table -->
+          <h3 class="text-sm font-bold text-gray-500 uppercase tracking-widest mb-2 mt-6">دودھ کا لیدہ (Milk Ledger)</h3>
+          <table class="w-full text-right border border-gray-200 rounded-lg overflow-hidden mb-6">
             <thead class="bg-${isSale ? 'emerald' : 'rose'}-600 text-white">
               <tr>
-                <th class="p-3 font-bold text-sm border-r border-white/20">تاریخ</th>
-                <th class="p-3 font-bold text-sm text-center">صبح</th>
-                <th class="p-3 font-bold text-sm text-center">شام</th>
-                <th class="p-3 font-bold text-sm text-center bg-black/10">کل</th>
-                <th class="p-3 font-bold text-sm text-left">بل (روپے)</th>
+                <th class="p-2 font-bold text-sm border-r border-white/20">تاریخ</th>
+                <th class="p-2 font-bold text-sm text-center">صبح</th>
+                <th class="p-2 font-bold text-sm text-center">شام</th>
+                <th class="p-2 font-bold text-sm text-center bg-black/10">کل</th>
+                <th class="p-2 font-bold text-sm text-left">بل (روپے)</th>
               </tr>
             </thead>
             <tbody>${tableRows}</tbody>
+          </table>
+
+          <!-- Payments Table -->
+          <h3 class="text-sm font-bold text-gray-500 uppercase tracking-widest mb-2">وصولی / ادائیگی (Payments)</h3>
+          <table class="w-full text-right border border-gray-200 rounded-lg overflow-hidden mb-6">
+            <thead class="bg-gray-800 text-white">
+              <tr>
+                <th class="p-2 font-bold text-sm border-r border-white/20">تاریخ</th>
+                <th class="p-2 font-bold text-sm text-center">تفصیل</th>
+                <th class="p-2 font-bold text-sm text-left">رقم</th>
+              </tr>
+            </thead>
+            <tbody>${paymentRows}</tbody>
           </table>
 
           <!-- Summary -->
