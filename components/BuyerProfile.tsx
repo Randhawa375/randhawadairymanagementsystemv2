@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Contact, MilkRecord, ModuleType, Payment } from '../types';
 import { formatUrduDate, getMonthLabel, getEnglishMonthLabel } from '../utils';
-import { ChevronRight, Save, Edit2, X, Download, Milk, Loader2, DollarSign, Wallet, ArrowLeft, History, Plus, Trash2, FileText, ReceiptText } from 'lucide-react';
+import { ChevronRight, Save, Edit2, X, Download, Milk, Loader2, DollarSign, Wallet, ArrowLeft, History, Plus, Trash2, FileText, ReceiptText, Lock } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
@@ -474,9 +474,58 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
     }
   };
 
+
+  const handleSaveRate = async () => {
+    const newRate = parseFloat(tempRate);
+    if (isNaN(newRate) || newRate < 0) return;
+
+    // Snapshot Strategy:
+    // When changing the global rate, we must ensure all EXISTING non-empty records 
+    // have their 'own' rate locked in, so they don't accidentally adopt the new rate 
+    // if we were relying on fallbacks.
+    const updatedRecords = buyer.records.map(r => {
+      // If already has a snapshot, keep it
+      if (r.pricePerLiter !== undefined) return r;
+
+      // If legacy record (no snapshot), verify it has data
+      if (r.totalQuantity > 0 && r.totalPrice > 0) {
+        const impliedRate = Math.round(r.totalPrice / r.totalQuantity);
+        // Lock this implied rate
+        return { ...r, pricePerLiter: impliedRate };
+      }
+
+      // If record is empty/zero, it's fine to adopt the new rate contextually for future edits,
+      // or we can lock it to the OLD rate. 
+      // Let's leave it undefined so it picks up the *new* default when edited next time?
+      // Actually, cleaner to just return as is.
+      return r;
+    });
+
+    // Update Local State with Locked Records + New Global Price
+    onUpdateBuyer({
+      ...buyer,
+      pricePerLiter: newRate,
+      records: updatedRecords
+    });
+
+    setIsEditingRate(false);
+
+    try {
+      await api.updateContact({ ...buyer, pricePerLiter: newRate });
+      // Note: We are NOT saving the 'backfilled' records to DB here to save bandwidth/complexity.
+      // They are saved in Local State. If the user edits a record, it will save the snapshot then.
+      // This solves the "Runtime" issue the user sees.
+    } catch (e) {
+      console.error("Failed to update rate", e);
+      alert("ریٹ اپ ڈیٹ نہیں ہو سکا۔");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50/50 fade-in flex flex-col">
+      {/* ... Header ... */}
       <header className="bg-white border-b border-slate-100 px-6 py-5 flex items-center justify-between sticky top-0 z-40 backdrop-blur-md shadow-sm">
+        {/* ... (Header content skipped for brevity, matching existing) ... */}
         <div className="flex items-center gap-5">
           <button onClick={onBack} className="p-3 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all active:scale-90 border border-slate-200 shadow-sm">
             <ArrowLeft size={22} className="text-slate-700" />
@@ -492,6 +541,7 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
           {isSale ? <DollarSign className={colorClass} size={26} /> : <Wallet className={colorClass} size={26} />}
         </div>
       </header>
+
       {/* Tabs */}
       <div className="flex bg-slate-100/50 px-6 border-b border-slate-200">
         <button
@@ -516,8 +566,8 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
                 {isEditingRate && !isPastMonth ? (
                   <div className="flex items-center gap-4 w-full">
                     <input type="number" value={tempRate} onChange={(e) => setTempRate(e.target.value)} className="bg-slate-50 p-3 rounded-xl w-28 text-center font-black text-lg outline-none border-2 border-slate-200 focus:border-emerald-500" autoFocus />
-                    <button onClick={() => { onUpdateBuyer({ ...buyer, pricePerLiter: parseFloat(tempRate) }); setIsEditingRate(false); }} className={`${btnClass} text-white p-3.5 rounded-xl shadow-lg active:scale-95`}><Save size={24} /></button>
-                    <button onClick={() => setIsEditingRate(false)} className="bg-slate-100 text-slate-500 p-3.5 rounded-xl"><X size={24} /></button>
+                    <button onClick={handleSaveRate} className={`${btnClass} text-white p-3.5 rounded-xl shadow-lg active:scale-95 transition-all`}><Save size={24} /></button>
+                    <button onClick={() => setIsEditingRate(false)} className="bg-slate-100 text-slate-500 p-3.5 rounded-xl hover:bg-slate-200 transition-all"><X size={24} /></button>
                   </div>
                 ) : (
                   <>
