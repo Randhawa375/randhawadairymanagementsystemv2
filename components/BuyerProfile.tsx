@@ -84,14 +84,10 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
       const m = field === 'morning' ? val : rec.morningQuantity;
       const e = field === 'evening' ? val : rec.eveningQuantity;
 
-      // Determine effective rate to preserve history
-      let effectiveRate = buyer.pricePerLiter;
-      if (rec.pricePerLiter !== undefined) {
-        effectiveRate = rec.pricePerLiter;
-      } else if (rec.totalQuantity > 0 && rec.totalPrice > 0) {
-        // Legacy record: Calculate implied rate
-        effectiveRate = rec.totalPrice / rec.totalQuantity;
-      }
+      // Enforce Current Global Rate Logic (as requested by User)
+      // Even if a record has a stored price, if we are editing it now, we should re-apply the current contact rate.
+      // This is consistent with the "Global Rate Update" philosophy implemented in handleSaveRate.
+      const effectiveRate = buyer.pricePerLiter;
 
       newRecord = {
         ...rec,
@@ -99,7 +95,7 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
         eveningQuantity: e,
         totalQuantity: m + e,
         totalPrice: Math.round((m + e) * effectiveRate),
-        pricePerLiter: effectiveRate // Ensure we save this snapshot
+        pricePerLiter: effectiveRate // Update snapshot to current rate
       };
       updatedRecords[index] = newRecord;
     } else {
