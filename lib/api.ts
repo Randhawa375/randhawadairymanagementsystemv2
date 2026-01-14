@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { Contact, MilkRecord, Payment, ModuleType } from '../types';
+import { Contact, MilkRecord, Payment, ModuleType, FarmRecord } from '../types';
 
 // Helper to map DB contact to App Contact
 const mapContact = (data: any): Contact => ({
@@ -30,6 +30,16 @@ const mapPayment = (data: any): Payment => ({
     amount: Number(data.amount),
     date: data.date,
     description: data.description,
+    timestamp: new Date(data.created_at).getTime(),
+});
+
+// Helper to map DB farm record
+const mapFarmRecord = (data: any): FarmRecord => ({
+    id: data.id,
+    date: data.date,
+    morningQuantity: Number(data.morning_quantity),
+    eveningQuantity: Number(data.evening_quantity),
+    totalQuantity: Number(data.total_quantity),
     timestamp: new Date(data.created_at).getTime(),
 });
 
@@ -205,5 +215,49 @@ export const api = {
     async deletePayment(id: string) {
         const { error } = await supabase.from('payments').delete().eq('id', id);
         if (error) throw error;
+    },
+
+    // Farm Records
+    async getFarmRecords(): Promise<FarmRecord[]> {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return [];
+
+        const { data, error } = await supabase
+            .from('farm_records')
+            .select('*')
+            .order('date', { ascending: false });
+
+        if (error) throw error;
+        return (data || []).map(mapFarmRecord);
+    },
+
+    async addFarmRecord(record: FarmRecord) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Not authenticated');
+
+        // Check for existing record on this date
+        const { data: existing } = await supabase
+            .from('farm_records')
+            .select('id')
+            .eq('date', record.date)
+            .maybeSingle();
+
+        if (existing) {
+            const { error } = await supabase.from('farm_records').update({
+                morning_quantity: record.morningQuantity,
+                evening_quantity: record.eveningQuantity,
+                total_quantity: record.totalQuantity
+            }).eq('id', existing.id);
+            if (error) throw error;
+        } else {
+            const { error } = await supabase.from('farm_records').insert({
+                user_id: user.id,
+                date: record.date,
+                morning_quantity: record.morningQuantity,
+                evening_quantity: record.eveningQuantity,
+                total_quantity: record.totalQuantity
+            });
+            if (error) throw error;
+        }
     }
 };

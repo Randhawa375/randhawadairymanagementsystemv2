@@ -18,6 +18,15 @@ export interface Payment {
   timestamp: number;
 }
 
+export interface FarmRecord {
+  id: string;
+  date: string;
+  morningQuantity: number;
+  eveningQuantity: number;
+  totalQuantity: number;
+  timestamp: number;
+}
+
 export interface Contact {
   id: string;
   name: string;
@@ -28,7 +37,7 @@ export interface Contact {
   createdAt: number;
 }
 
-export type ModuleType = 'SALE' | 'PURCHASE';
+export type ModuleType = 'SALE' | 'PURCHASE' | 'FARM';
 export type ViewState = 'AUTH' | 'MAIN_MENU' | 'DASHBOARD' | 'PROFILE';
 
 export interface User {

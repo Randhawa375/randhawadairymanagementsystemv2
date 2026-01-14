@@ -3,7 +3,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Contact, ViewState, ModuleType, User } from './types';
 import { getMonthLabel, getEnglishMonthLabel } from './utils';
 import BuyerProfile from './components/BuyerProfile';
-import { Plus, Users, Milk, DollarSign, X, Settings, Trash2, Wallet, ShoppingCart, TrendingUp, TrendingDown, ChevronLeft, ArrowRight, ChevronRight, Download, Loader2, Sparkles, LogOut, Lock, User as UserIcon } from 'lucide-react';
+import FarmDashboard from './components/FarmDashboard';
+import { Plus, Users, Milk, DollarSign, X, Settings, Trash2, Wallet, ShoppingCart, TrendingUp, TrendingDown, ChevronLeft, ArrowRight, ChevronRight, Download, Loader2, Sparkles, LogOut, Lock, User as UserIcon, Tractor } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import html2canvas from 'html2canvas';
@@ -248,6 +249,42 @@ const App: React.FC = () => {
       payableList: payList
     };
   }, [dashboardData, monthPrefix]);
+
+  // --- DAILY INSIGHT LOGIC ---
+  const [dailyDate, setDailyDate] = useState(new Date().toISOString().split('T')[0]);
+  const [dailyStats, setDailyStats] = useState({ farm: 0, purchase: 0, sale: 0 });
+
+  useEffect(() => {
+    if (viewState === 'MAIN_MENU') {
+      const fetchDaily = async () => {
+        try {
+          // 1. Farm
+          const farmRecs = await api.getFarmRecords();
+          const todayFarm = farmRecs.find(r => r.date === dailyDate)?.totalQuantity || 0;
+
+          // 2. Purchase (Sum all suppliers for this date)
+          // We rely on dashboardData.purchases which is already loaded
+          const todayPurchase = dashboardData.purchases.reduce((sum, c) => {
+            const rec = c.records.find(r => r.date === dailyDate);
+            return sum + (rec?.totalQuantity || 0);
+          }, 0);
+
+          // 3. Sale
+          const todaySale = dashboardData.sales.reduce((sum, c) => {
+            const rec = c.records.find(r => r.date === dailyDate);
+            return sum + (rec?.totalQuantity || 0);
+          }, 0);
+
+          setDailyStats({ farm: todayFarm, purchase: todayPurchase, sale: todaySale });
+        } catch (e) {
+          console.error("Daily stats failed", e);
+        }
+      };
+      fetchDaily();
+    }
+  }, [viewState, dailyDate, dashboardData]);
+  // Note: relying on dashboardData means if we just added a record, we might need to refresh dashboardData?
+  // Ideally loading dashboardData should trigger this.
 
   const getEmail = (user: string) => {
     // If user enters a simple username, append a domain
@@ -828,88 +865,136 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          {/* Summary Cards Row */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Profit Card */}
-            <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 flex flex-col items-center justify-center relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-bl-full -mr-8 -mt-8 opacity-50 group-hover:scale-110 transition-transform"></div>
-              <p className="text-slate-400 font-black text-xs uppercase tracking-widest mb-2 z-10">ماہانہ منافع (Profit)</p>
-              <h3 className={`text-4xl font-black z-10 tracking-tight ${totalProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                {totalProfit.toLocaleString()}
-                <span className="text-sm text-slate-400 font-bold ml-1">PKR</span>
-              </h3>
-              <div className={`mt-4 p-2 rounded-full ${totalProfit >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'} flex items-center gap-2 text-xs font-black px-4`}>
-                {totalProfit >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                {totalProfit >= 0 ? 'منافع بخش' : 'خسارہ'}
+
+          {/* Executive Dashboard Section */}
+          <div className="space-y-6">
+
+            {/* 1. Daily Balance Check (The "Smart" Dashboard) */}
+            <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm relative overflow-hidden">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h2 className="text-2xl font-black text-slate-800">آج کا جائزہ (Daily Insight)</h2>
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">REAL-TIME STOCK STATUS</p>
+                </div>
+                <input
+                  type="date"
+                  value={dailyDate}
+                  onChange={(e) => setDailyDate(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-xl p-3 font-bold text-slate-700 outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                {/* Farm */}
+                <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
+                  <p className="text-[10px] text-blue-400 font-black uppercase tracking-widest mb-1">اپنی پیداوار (Farm)</p>
+                  <p className="text-2xl font-black text-blue-700">{dailyStats.farm} <span className="text-xs">L</span></p>
+                </div>
+                {/* Purchase */}
+                <div className="p-4 bg-rose-50 rounded-2xl border border-rose-100">
+                  <p className="text-[10px] text-rose-400 font-black uppercase tracking-widest mb-1">خریداری (Purchase)</p>
+                  <p className="text-2xl font-black text-rose-700">{dailyStats.purchase} <span className="text-xs">L</span></p>
+                </div>
+                {/* Total Available */}
+                <div className="p-4 bg-slate-100 rounded-2xl border border-slate-200">
+                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">کل موجود (Total)</p>
+                  <p className="text-2xl font-black text-slate-700">{dailyStats.farm + dailyStats.purchase} <span className="text-xs">L</span></p>
+                </div>
+                {/* Sales */}
+                <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 relative">
+                  <p className="text-[10px] text-emerald-400 font-black uppercase tracking-widest mb-1">فروخت (Sold)</p>
+                  <p className="text-2xl font-black text-emerald-700">{dailyStats.sale} <span className="text-xs">L</span></p>
+                  {/* Balance Indicator */}
+                  <div className={`absolute top-2 right-2 w-3 h-3 rounded-full ${dailyStats.farm + dailyStats.purchase >= dailyStats.sale ? 'bg-emerald-500' : 'bg-red-500 animate-pulse'}`}></div>
+                </div>
+              </div>
+
+              <div className="mt-6 pt-6 border-t border-slate-100 flex justify-between items-center">
+                <p className="text-sm font-bold text-slate-500">
+                  {dailyStats.farm + dailyStats.purchase - dailyStats.sale >= 0
+                    ? "✅ اسٹاک بیلنس: سب ٹھیک ہے (Stock OK)"
+                    : "⚠️ وارننگ: فروخت زیادہ ہے (Stock Negative!)"
+                  }
+                </p>
+                <span className={`text-lg font-black ${dailyStats.farm + dailyStats.purchase - dailyStats.sale >= 0 ? 'text-slate-700' : 'text-red-600'}`}>
+                  {dailyStats.farm + dailyStats.purchase - dailyStats.sale} L Remaining
+                </span>
               </div>
             </div>
 
-            {/* Purchase Card */}
-            <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 flex flex-col items-center justify-center relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-rose-50 rounded-bl-full -mr-8 -mt-8 opacity-50 group-hover:scale-110 transition-transform"></div>
-              <p className="text-slate-400 font-black text-xs uppercase tracking-widest mb-2 z-10">کل خریداری (Purchase)</p>
-              <h3 className="text-4xl font-black text-rose-600 z-10 tracking-tight">
-                {totalPurchaseMonth.toLocaleString()}
-                <span className="text-sm text-slate-400 font-bold ml-1">PKR</span>
-              </h3>
-              <div className="mt-4 p-2 rounded-full bg-rose-100 text-rose-700 flex items-center gap-2 text-xs font-black px-4">
-                <ArrowRight size={14} className="rotate-45" />
-                اخراجات
+            {/* 2. Monthly Financials (Existing Cards) */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* ... Keep existing Logic but slightly compacted ... */}
+              <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 text-center">
+                <p className="text-slate-400 font-black text-[10px] uppercase tracking-widest mb-2">ماہانہ منافع</p>
+                <h3 className={`text-3xl font-black ${totalProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  {totalProfit.toLocaleString()}<span className="text-xs text-slate-300 ml-1">PKR</span>
+                </h3>
+              </div>
+              <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 text-center">
+                <p className="text-slate-400 font-black text-[10px] uppercase tracking-widest mb-2">ماہانہ خریداری</p>
+                <h3 className="text-3xl font-black text-rose-600">
+                  {totalPurchaseMonth.toLocaleString()}<span className="text-xs text-slate-300 ml-1">PKR</span>
+                </h3>
+              </div>
+              <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 text-center">
+                <p className="text-slate-400 font-black text-[10px] uppercase tracking-widest mb-2">ماہانہ فروخت</p>
+                <h3 className="text-3xl font-black text-emerald-600">
+                  {totalSaleMonth.toLocaleString()}<span className="text-xs text-slate-300 ml-1">PKR</span>
+                </h3>
               </div>
             </div>
 
-            {/* Sale Card */}
-            <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 flex flex-col items-center justify-center relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-bl-full -mr-8 -mt-8 opacity-50 group-hover:scale-110 transition-transform"></div>
-              <p className="text-slate-400 font-black text-xs uppercase tracking-widest mb-2 z-10">کل فروخت (Sale)</p>
-              <h3 className="text-4xl font-black text-emerald-600 z-10 tracking-tight">
-                {totalSaleMonth.toLocaleString()}
-                <span className="text-sm text-slate-400 font-bold ml-1">PKR</span>
-              </h3>
-              <div className="mt-4 p-2 rounded-full bg-emerald-100 text-emerald-700 flex items-center gap-2 text-xs font-black px-4">
-                <TrendingUp size={14} />
-                آمدنی
-              </div>
-            </div>
-          </div>
+            {/* 3. Main Modules Navigation */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-          {/* Module Navigation */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <button
-              onClick={() => handleSelectModule('PURCHASE')}
-              className="group relative bg-rose-600 p-10 rounded-[3rem] shadow-xl shadow-rose-100 hover:-translate-y-2 transition-all duration-500 overflow-hidden active:scale-95 text-right border-4 border-white"
-            >
-              <div className="relative z-10 flex items-center justify-between">
-                <div className="flex items-center gap-8">
-                  <div className="bg-white p-6 rounded-3xl text-rose-600 group-hover:rotate-6 transition-transform shadow-lg">
-                    <Wallet size={40} />
+              {/* FARM MODULE BUTTON */}
+              <button
+                onClick={() => handleSelectModule('FARM')}
+                className="group relative bg-blue-600 p-8 rounded-[2.5rem] shadow-xl shadow-blue-100 hover:-translate-y-1 transition-all active:scale-95 text-right border-4 border-white overflow-hidden"
+              >
+                <div className="relative z-10 flex flex-col justify-between h-full min-h-[140px]">
+                  <div className="bg-white p-4 rounded-2xl text-blue-600 w-16 h-16 flex items-center justify-center shadow-lg mb-4">
+                    <Tractor size={32} />
                   </div>
                   <div>
-                    <h2 className="text-3xl font-black text-white tracking-tighter">دودھ کی خریداری</h2>
-                    <p className="text-rose-100 text-sm font-black uppercase mt-2 tracking-widest opacity-80">سپلائرز کا ریکارڈ</p>
+                    <h2 className="text-2xl font-black text-white tracking-tighter">اپنا فارم (Farm)</h2>
+                    <p className="text-blue-100 text-[10px] font-black uppercase mt-1 tracking-widest opacity-80">پیداوار کا ریکارڈ</p>
                   </div>
                 </div>
-                <ArrowRight className="text-white opacity-40 group-hover:opacity-100" size={32} />
-              </div>
-            </button>
+              </button>
 
-            <button
-              onClick={() => handleSelectModule('SALE')}
-              className="group relative bg-emerald-600 p-10 rounded-[3rem] shadow-xl shadow-emerald-100 hover:-translate-y-2 transition-all duration-500 overflow-hidden active:scale-95 text-right border-4 border-white"
-            >
-              <div className="relative z-10 flex items-center justify-between">
-                <div className="flex items-center gap-8">
-                  <div className="bg-white p-6 rounded-3xl text-emerald-600 group-hover:rotate-6 transition-transform shadow-lg">
-                    <ShoppingCart size={40} />
+              <button
+                onClick={() => handleSelectModule('PURCHASE')}
+                className="group relative bg-rose-600 p-8 rounded-[2.5rem] shadow-xl shadow-rose-100 hover:-translate-y-1 transition-all active:scale-95 text-right border-4 border-white overflow-hidden"
+              >
+                <div className="relative z-10 flex flex-col justify-between h-full min-h-[140px]">
+                  <div className="bg-white p-4 rounded-2xl text-rose-600 w-16 h-16 flex items-center justify-center shadow-lg mb-4">
+                    <Wallet size={32} />
                   </div>
                   <div>
-                    <h2 className="text-3xl font-black text-white tracking-tighter">دودھ کی فروخت</h2>
-                    <p className="text-emerald-100 text-sm font-black uppercase mt-2 tracking-widest opacity-80">گاہکوں کا ریکارڈ</p>
+                    <h2 className="text-2xl font-black text-white tracking-tighter">خریداری (Purchase)</h2>
+                    <p className="text-rose-100 text-[10px] font-black uppercase mt-1 tracking-widest opacity-80">سپلائرز کا ریکارڈ</p>
                   </div>
                 </div>
-                <ArrowRight className="text-white opacity-40 group-hover:opacity-100" size={32} />
-              </div>
-            </button>
+              </button>
+
+              <button
+                onClick={() => handleSelectModule('SALE')}
+                className="group relative bg-emerald-600 p-8 rounded-[2.5rem] shadow-xl shadow-emerald-100 hover:-translate-y-1 transition-all active:scale-95 text-right border-4 border-white overflow-hidden"
+              >
+                <div className="relative z-10 flex flex-col justify-between h-full min-h-[140px]">
+                  <div className="bg-white p-4 rounded-2xl text-emerald-600 w-16 h-16 flex items-center justify-center shadow-lg mb-4">
+                    <ShoppingCart size={32} />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-black text-white tracking-tighter">فروخت (Sale)</h2>
+                    <p className="text-emerald-100 text-[10px] font-black uppercase mt-1 tracking-widest opacity-80">گاہکوں کا ریکارڈ</p>
+                  </div>
+                </div>
+              </button>
+            </div>
+
           </div>
 
           {/* Payable / Receivable Lists Summary */}
@@ -997,6 +1082,15 @@ const App: React.FC = () => {
 
         </div>
       </div>
+    );
+  }
+
+  if (viewState === 'DASHBOARD' && activeModule === 'FARM') {
+    return (
+      <FarmDashboard onBack={() => {
+        setViewState('MAIN_MENU');
+        setActiveModule(null);
+      }} />
     );
   }
 
