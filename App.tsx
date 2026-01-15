@@ -870,55 +870,82 @@ const App: React.FC = () => {
           <div className="space-y-6">
 
             {/* 1. Daily Balance Check (The "Smart" Dashboard) */}
-            <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm relative overflow-hidden">
-              <div className="flex justify-between items-center mb-6">
+            <div className="bg-white rounded-[2rem] p-6 md:p-8 border border-slate-100 shadow-xl shadow-slate-200/50 relative overflow-hidden">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <div>
-                  <h2 className="text-2xl font-black text-slate-800">آج کا جائزہ (Daily Insight)</h2>
-                  <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">REAL-TIME STOCK STATUS</p>
+                  <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">آج کا جائزہ</h2>
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Daily Stock Insight</p>
                 </div>
-                <input
-                  type="date"
-                  value={dailyDate}
-                  onChange={(e) => setDailyDate(e.target.value)}
-                  className="bg-slate-50 border border-slate-200 rounded-xl p-3 font-bold text-slate-700 outline-none focus:border-blue-500"
-                />
+                <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-200 w-full md:w-auto">
+                  <Calendar size={18} className="text-slate-400 ml-2" />
+                  <input
+                    type="date"
+                    value={dailyDate}
+                    onChange={(e) => setDailyDate(e.target.value)}
+                    className="bg-transparent font-bold text-slate-700 outline-none w-full md:w-auto text-sm"
+                  />
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
                 {/* Farm */}
-                <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
-                  <p className="text-[10px] text-blue-400 font-black uppercase tracking-widest mb-1">اپنی پیداوار (Farm)</p>
-                  <p className="text-2xl font-black text-blue-700">{dailyStats.farm} <span className="text-xs">L</span></p>
+                <div className="p-5 bg-gradient-to-br from-blue-50 to-white rounded-2xl border border-blue-100 shadow-sm flex flex-col items-center justify-center">
+                  <div className="bg-blue-100 p-2 rounded-full mb-2">
+                    <Tractor size={18} className="text-blue-600" />
+                  </div>
+                  <p className="text-[10px] text-blue-400 font-black uppercase tracking-widest mb-1">Farm</p>
+                  <p className="text-2xl md:text-3xl font-black text-blue-700">{dailyStats.farm}</p>
+                  <p className="text-[10px] text-blue-300 font-bold">Liters</p>
                 </div>
+
                 {/* Purchase */}
-                <div className="p-4 bg-rose-50 rounded-2xl border border-rose-100">
-                  <p className="text-[10px] text-rose-400 font-black uppercase tracking-widest mb-1">خریداری (Purchase)</p>
-                  <p className="text-2xl font-black text-rose-700">{dailyStats.purchase} <span className="text-xs">L</span></p>
+                <div className="p-5 bg-gradient-to-br from-rose-50 to-white rounded-2xl border border-rose-100 shadow-sm flex flex-col items-center justify-center">
+                  <div className="bg-rose-100 p-2 rounded-full mb-2">
+                    <History size={18} className="text-rose-600" />
+                  </div>
+                  <p className="text-[10px] text-rose-400 font-black uppercase tracking-widest mb-1">Purchase</p>
+                  <p className="text-2xl md:text-3xl font-black text-rose-700">{dailyStats.purchase}</p>
+                  <p className="text-[10px] text-rose-300 font-bold">Liters</p>
                 </div>
+
                 {/* Total Available */}
-                <div className="p-4 bg-slate-100 rounded-2xl border border-slate-200">
-                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">کل موجود (Total)</p>
-                  <p className="text-2xl font-black text-slate-700">{dailyStats.farm + dailyStats.purchase} <span className="text-xs">L</span></p>
+                <div className="p-5 bg-gradient-to-br from-slate-50 to-white rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-center relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-full h-1 bg-slate-200"></div>
+                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Total Stock</p>
+                  <p className="text-2xl md:text-3xl font-black text-slate-700">{dailyStats.farm + dailyStats.purchase}</p>
+                  <p className="text-[10px] text-slate-300 font-bold">Liters</p>
                 </div>
+
                 {/* Sales */}
-                <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 relative">
-                  <p className="text-[10px] text-emerald-400 font-black uppercase tracking-widest mb-1">فروخت (Sold)</p>
-                  <p className="text-2xl font-black text-emerald-700">{dailyStats.sale} <span className="text-xs">L</span></p>
-                  {/* Balance Indicator */}
-                  <div className={`absolute top-2 right-2 w-3 h-3 rounded-full ${dailyStats.farm + dailyStats.purchase >= dailyStats.sale ? 'bg-emerald-500' : 'bg-red-500 animate-pulse'}`}></div>
+                <div className="p-5 bg-gradient-to-br from-emerald-50 to-white rounded-2xl border border-emerald-100 shadow-sm flex flex-col items-center justify-center relative">
+                  <div className="bg-emerald-100 p-2 rounded-full mb-2">
+                    <ShoppingCart size={18} className="text-emerald-600" />
+                  </div>
+                  <p className="text-[10px] text-emerald-400 font-black uppercase tracking-widest mb-1">Sold</p>
+                  <p className="text-2xl md:text-3xl font-black text-emerald-700">{dailyStats.sale}</p>
+                  <p className="text-[10px] text-emerald-300 font-bold">Liters</p>
                 </div>
               </div>
 
-              <div className="mt-6 pt-6 border-t border-slate-100 flex justify-between items-center">
-                <p className="text-sm font-bold text-slate-500">
-                  {dailyStats.farm + dailyStats.purchase - dailyStats.sale >= 0
-                    ? "✅ اسٹاک بیلنس: سب ٹھیک ہے (Stock OK)"
-                    : "⚠️ وارننگ: فروخت زیادہ ہے (Stock Negative!)"
-                  }
-                </p>
-                <span className={`text-lg font-black ${dailyStats.farm + dailyStats.purchase - dailyStats.sale >= 0 ? 'text-slate-700' : 'text-red-600'}`}>
-                  {dailyStats.farm + dailyStats.purchase - dailyStats.sale} L Remaining
-                </span>
+              {/* Balance Bar */}
+              <div className={`mt-6 p-4 rounded-xl border ${dailyStats.farm + dailyStats.purchase - dailyStats.sale >= 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'} flex items-center justify-between`}>
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-full ${dailyStats.farm + dailyStats.purchase - dailyStats.sale >= 0 ? 'bg-emerald-200' : 'bg-red-200'}`}>
+                    {dailyStats.farm + dailyStats.purchase - dailyStats.sale >= 0 ? <Check size={16} className="text-emerald-700" /> : <X size={16} className="text-red-700" />}
+                  </div>
+                  <div>
+                    <p className={`text-sm font-black ${dailyStats.farm + dailyStats.purchase - dailyStats.sale >= 0 ? 'text-emerald-800' : 'text-red-800'}`}>
+                      {dailyStats.farm + dailyStats.purchase - dailyStats.sale >= 0 ? "Stock Balanced" : "Stock Shortage!"}
+                    </p>
+                    <p className="text-[10px] opacity-70 font-bold uppercase tracking-widest">Status</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className={`text-2xl font-black ${dailyStats.farm + dailyStats.purchase - dailyStats.sale >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                    {dailyStats.farm + dailyStats.purchase - dailyStats.sale}
+                  </p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">Remaining</p>
+                </div>
               </div>
             </div>
 
