@@ -4,7 +4,7 @@ import { Contact, ViewState, ModuleType, User } from './types';
 import { getMonthLabel, getEnglishMonthLabel } from './utils';
 import BuyerProfile from './components/BuyerProfile';
 import FarmDashboard from './components/FarmDashboard';
-import { Plus, Users, Milk, DollarSign, X, Settings, Trash2, Wallet, ShoppingCart, TrendingUp, TrendingDown, ChevronLeft, ArrowRight, ChevronRight, Download, Loader2, Sparkles, LogOut, Lock, User as UserIcon, Tractor } from 'lucide-react';
+import { Plus, Users, Milk, DollarSign, X, Settings, Trash2, Wallet, ShoppingCart, TrendingUp, TrendingDown, ChevronLeft, ArrowRight, ChevronRight, Download, Loader2, Sparkles, LogOut, Lock, User as UserIcon, Tractor, Calendar, Check, History } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import html2canvas from 'html2canvas';
