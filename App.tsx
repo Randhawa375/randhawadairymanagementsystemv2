@@ -1082,6 +1082,7 @@ const App: React.FC = () => {
                 </div>
 
                 {/* Total Available (Today) */}
+                {/* Total Available (Today) */}
                 <div className="p-5 bg-gradient-to-br from-slate-50 to-white rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-center relative overflow-hidden">
                   <div className="absolute top-0 left-0 w-full h-1 bg-slate-200"></div>
                   <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Total Available</p>
