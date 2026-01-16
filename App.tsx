@@ -357,7 +357,10 @@ const App: React.FC = () => {
   };
 
   // Derived Totals for UI
-  const totalAvailable = dailyStats.prevStock + dailyStats.farm + dailyStats.purchase;
+  const totalAvailable = (dailyStats.openingStock !== undefined && dailyStats.openingStock !== null)
+    ? dailyStats.openingStock + dailyStats.farm + dailyStats.purchase
+    : dailyStats.prevStock + dailyStats.farm + dailyStats.purchase;
+
   const netRemaining = totalAvailable - dailyStats.sale;
 
 
@@ -1053,7 +1056,7 @@ const App: React.FC = () => {
                 <div className="p-5 bg-gradient-to-br from-slate-50 to-white rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-center relative overflow-hidden">
                   <div className="absolute top-0 left-0 w-full h-1 bg-slate-200"></div>
                   <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Total Available</p>
-                  <p className="text-2xl md:text-3xl font-black text-slate-700">{dailyStats.prevStock + dailyStats.farm + dailyStats.purchase}</p>
+                  <p className="text-2xl md:text-3xl font-black text-slate-700">{totalAvailable}</p>
                   <p className="text-[10px] text-slate-300 font-bold">(Prev+Farm+Pur)</p>
                 </div>
 
@@ -1070,21 +1073,21 @@ const App: React.FC = () => {
               </div>
 
               {/* Balance Bar */}
-              <div className={`mt-6 p-4 rounded-xl border ${dailyStats.prevStock + dailyStats.farm + dailyStats.purchase - dailyStats.sale >= 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'} flex items-center justify-between`}>
+              <div className={`mt-6 p-4 rounded-xl border ${netRemaining >= 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'} flex items-center justify-between`}>
                 <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-full ${dailyStats.prevStock + dailyStats.farm + dailyStats.purchase - dailyStats.sale >= 0 ? 'bg-emerald-200' : 'bg-red-200'}`}>
-                    {dailyStats.prevStock + dailyStats.farm + dailyStats.purchase - dailyStats.sale >= 0 ? <Check size={16} className="text-emerald-700" /> : <X size={16} className="text-red-700" />}
+                  <div className={`p-2 rounded-full ${netRemaining >= 0 ? 'bg-emerald-200' : 'bg-red-200'}`}>
+                    {netRemaining >= 0 ? <Check size={16} className="text-emerald-700" /> : <X size={16} className="text-red-700" />}
                   </div>
                   <div>
-                    <p className={`text-sm font-black ${dailyStats.prevStock + dailyStats.farm + dailyStats.purchase - dailyStats.sale >= 0 ? 'text-emerald-800' : 'text-red-800'}`}>
-                      {dailyStats.prevStock + dailyStats.farm + dailyStats.purchase - dailyStats.sale >= 0 ? "Stock Balanced" : "Stock Shortage!"}
+                    <p className={`text-sm font-black ${netRemaining >= 0 ? 'text-emerald-800' : 'text-red-800'}`}>
+                      {netRemaining >= 0 ? "Stock Balanced" : "Stock Shortage!"}
                     </p>
                     <p className="text-[10px] opacity-70 font-bold uppercase tracking-widest">Status</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className={`text-2xl font-black ${dailyStats.prevStock + dailyStats.farm + dailyStats.purchase - dailyStats.sale >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
-                    {dailyStats.prevStock + dailyStats.farm + dailyStats.purchase - dailyStats.sale}
+                  <p className={`text-2xl font-black ${netRemaining >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                    {netRemaining}
                   </p>
                   <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">Remaining / Carry Over</p>
                 </div>
