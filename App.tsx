@@ -4,7 +4,7 @@ import { Contact, ViewState, ModuleType, User } from './types';
 import { getMonthLabel, getEnglishMonthLabel } from './utils';
 import BuyerProfile from './components/BuyerProfile';
 import FarmDashboard from './components/FarmDashboard';
-import { Plus, Users, Milk, DollarSign, X, Settings, Trash2, Wallet, ShoppingCart, TrendingUp, TrendingDown, ChevronLeft, ArrowRight, ChevronRight, Download, Loader2, Sparkles, LogOut, Lock, User as UserIcon, Tractor, Calendar, Check, History } from 'lucide-react';
+import { Plus, Users, Milk, DollarSign, X, Settings, Trash2, Wallet, ShoppingCart, TrendingUp, TrendingDown, ChevronLeft, ArrowRight, ChevronRight, Download, Loader2, Sparkles, LogOut, Lock, User as UserIcon, Tractor, Calendar, Check, History, RefreshCw } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import html2canvas from 'html2canvas';
@@ -252,7 +252,41 @@ const App: React.FC = () => {
 
   // --- DAILY INSIGHT LOGIC ---
   const [dailyDate, setDailyDate] = useState(new Date().toISOString().split('T')[0]);
-  const [dailyStats, setDailyStats] = useState({ farm: 0, purchase: 0, sale: 0, prevStock: 0 });
+  // Add openingStock (manual) to dailyStats. Can be null if hybrid/auto.
+  const [dailyStats, setDailyStats] = useState({ farm: 0, purchase: 0, sale: 0, prevStock: 0, openingStock: undefined as number | null | undefined });
+  const [isEditingStock, setIsEditingStock] = useState(false);
+  const [manualStockInput, setManualStockInput] = useState('');
+
+  // Daily Detail Modal State
+  const [dailyDetailModal, setDailyDetailModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    type: 'PURCHASE' | 'SALE' | null;
+    data: { name: string; quantity: number }[];
+    total: number;
+  }>({ isOpen: false, title: '', type: null, data: [], total: 0 });
+
+  const handleShowDetails = (type: 'PURCHASE' | 'SALE') => {
+    const list = type === 'PURCHASE' ? dashboardData.purchases : dashboardData.sales;
+    const filteredData = list.map(c => {
+      const dailyRecord = c.records.find(r => r.date === dailyDate);
+      return {
+        name: c.name,
+        quantity: dailyRecord?.totalQuantity || 0
+      };
+    }).filter(item => item.quantity > 0)
+      .sort((a, b) => b.quantity - a.quantity);
+
+    const total = filteredData.reduce((sum, item) => sum + item.quantity, 0);
+
+    setDailyDetailModal({
+      isOpen: true,
+      title: type === 'PURCHASE' ? 'Today\'s Purchases' : 'Today\'s Sales',
+      type,
+      data: filteredData,
+      total
+    });
+  };
 
   useEffect(() => {
     if (viewState === 'MAIN_MENU') {
@@ -261,7 +295,11 @@ const App: React.FC = () => {
           // 1. Farm Records
           const farmRecs = await api.getFarmRecords();
 
-          // 2. Previous Totals (History before selected date)
+          // Check for today's record to get manually set opening stock
+          const todayRecord = farmRecs.find(r => r.date === dailyDate);
+
+          // 2. Previous Totals (History before selected date) - Calculated Fallback
+          // We only use this if manual stock is NOT set (or null)
           const prevFarm = farmRecs
             .filter(r => r.date < dailyDate)
             .reduce((sum, r) => sum + r.totalQuantity, 0);
@@ -278,10 +316,10 @@ const App: React.FC = () => {
               .reduce((s, r) => s + r.totalQuantity, 0);
           }, 0);
 
-          const prevStock = prevFarm + prevPurchase - prevSale;
+          const calculatedPrevStock = prevFarm + prevPurchase - prevSale;
 
           // 3. Today's Stats
-          const todayFarm = farmRecs.find(r => r.date === dailyDate)?.totalQuantity || 0;
+          const todayFarm = todayRecord?.totalQuantity || 0;
 
           const todayPurchase = dashboardData.purchases.reduce((sum, c) => {
             const rec = c.records.find(r => r.date === dailyDate);
@@ -293,7 +331,18 @@ const App: React.FC = () => {
             return sum + (rec?.totalQuantity || 0);
           }, 0);
 
-          setDailyStats({ farm: todayFarm, purchase: todayPurchase, sale: todaySale, prevStock });
+          setDailyStats({
+            farm: todayFarm,
+            purchase: todayPurchase,
+            sale: todaySale,
+            prevStock: calculatedPrevStock,
+            openingStock: todayRecord?.openingStock // can be null or number
+          });
+
+          // Initialize manual input
+          // If manual exists, show it. If null/undefined, show calculated.
+          setManualStockInput(((todayRecord?.openingStock !== null && todayRecord?.openingStock !== undefined) ? todayRecord.openingStock : calculatedPrevStock).toString());
+
         } catch (e) {
           console.error("Daily stats failed", e);
         }
@@ -301,6 +350,42 @@ const App: React.FC = () => {
       fetchDaily();
     }
   }, [viewState, dailyDate, dashboardData]);
+
+  const handleUpdateStock = async (revert: boolean = false) => {
+    try {
+      const newVal = revert ? null : parseFloat(manualStockInput);
+      if (!revert && isNaN(newVal as number)) return;
+
+      const all = await api.getFarmRecords();
+      const existing = all.find(r => r.date === dailyDate);
+
+      await api.addFarmRecord({
+        id: existing?.id || '',
+        date: dailyDate,
+        morningQuantity: existing?.morningQuantity || 0,
+        eveningQuantity: existing?.eveningQuantity || 0,
+        totalQuantity: existing?.totalQuantity || 0,
+        openingStock: newVal, // can be null to revert
+        timestamp: 0
+      });
+
+      setDailyStats(prev => ({ ...prev, openingStock: newVal }));
+      setIsEditingStock(false);
+      if (revert) {
+        // Reset manual input to calculated if reverting
+        // We need to fetch/calc again or just trust previous state? 
+        // prevStock in state holds the calculated value.
+        setManualStockInput(dailyStats.prevStock.toString());
+        alert("Reverted to Automatic Calculation!");
+      } else {
+        alert("Opening stock updated!");
+      }
+
+    } catch (e) {
+      console.error("Failed to update stock", e);
+      alert("اپ ڈیٹ محفوظ نہیں ہو سکا۔");
+    }
+  };
 
   // Derived Totals for UI
   const totalAvailable = dailyStats.prevStock + dailyStats.farm + dailyStats.purchase;
@@ -912,12 +997,64 @@ const App: React.FC = () => {
               {/* Grid with 5 Cards now (History added) - Updated 01/16/2026 01:28 AM */}
               <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
                 {/* Previous Stock */}
-                <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col items-center justify-center col-span-2 md:col-span-1 shadow-sm">
-                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Opening Stock</p>
-                  <p className={`text-2xl md:text-3xl font-black ${dailyStats.prevStock < 0 ? 'text-blue-500' : 'text-slate-600'}`}>
-                    {dailyStats.prevStock}
+                {/* Previous Stock (Editable) */}
+                <div
+                  onClick={() => setIsEditingStock(true)}
+                  className="p-5 bg-slate-50 cursor-pointer hover:bg-slate-100 rounded-2xl border border-slate-200 flex flex-col items-center justify-center col-span-2 md:col-span-1 shadow-sm transition-colors group relative"
+                >
+                  {/* Visual Indicator for Edit */}
+                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="bg-slate-200 p-1 rounded-md">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-500"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">
+                    {dailyStats.openingStock !== undefined ? "Opening (Manual)" : "Opening (Calc)"}
                   </p>
-                  <p className="text-[10px] text-slate-300 font-bold">Previous Bal</p>
+
+                  {isEditingStock ? (
+                    <div className="flex items-center justify-center w-full" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        autoFocus
+                        type="number"
+                        value={manualStockInput}
+                        onChange={(e) => setManualStockInput(e.target.value)}
+                        onBlur={() => {
+                          // Optional: Auto-save on blur or just cancel? 
+                          // Let's just cancel edit mode if empty or keep it open? 
+                          // UX: better to have explicit save.
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleUpdateStock();
+                          if (e.key === 'Escape') setIsEditingStock(false);
+                        }}
+                        className="w-20 text-center bg-white border border-emerald-300 rounded-lg text-lg font-black text-slate-800 outline-none p-1 shadow-inner"
+                      />
+                      <button
+                        onClick={() => handleUpdateStock(false)}
+                        className="ml-2 bg-emerald-500 text-white p-1.5 rounded-lg shadow-md hover:bg-emerald-600 active:scale-95 transition-all"
+                      >
+                        <Check size={14} />
+                      </button>
+                      <button
+                        title="Revert to Auto"
+                        onClick={() => handleUpdateStock(true)}
+                        className="ml-1 bg-slate-400 text-white p-1.5 rounded-lg shadow-md hover:bg-slate-500 active:scale-95 transition-all"
+                      >
+                        <RefreshCw size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <p className={`text-2xl md:text-3xl font-black ${dailyStats.prevStock < 0 ? 'text-blue-500' : 'text-slate-600'}`}>
+                        {dailyStats.openingStock !== undefined ? dailyStats.openingStock : dailyStats.prevStock}
+                      </p>
+                      <p className="text-[10px] text-slate-300 font-bold">
+                        Click to Edit
+                      </p>
+                    </>
+                  )}
                 </div>
 
                 {/* Farm */}
@@ -931,13 +1068,17 @@ const App: React.FC = () => {
                 </div>
 
                 {/* Purchase */}
-                <div className="p-5 bg-gradient-to-br from-rose-50 to-white rounded-2xl border border-rose-100 shadow-sm flex flex-col items-center justify-center">
+                {/* Purchase */}
+                <div
+                  onClick={() => handleShowDetails('PURCHASE')}
+                  className="p-5 bg-gradient-to-br from-rose-50 to-white rounded-2xl border border-rose-100 shadow-sm flex flex-col items-center justify-center cursor-pointer hover:shadow-md transition-shadow"
+                >
                   <div className="bg-rose-100 p-2 rounded-full mb-2">
                     <History size={18} className="text-rose-600" />
                   </div>
                   <p className="text-[10px] text-rose-400 font-black uppercase tracking-widest mb-1">Purchase</p>
                   <p className="text-2xl md:text-3xl font-black text-rose-700">{dailyStats.purchase}</p>
-                  <p className="text-[10px] text-rose-300 font-bold">Liters</p>
+                  <p className="text-[10px] text-rose-300 font-bold">Liters (Click for details)</p>
                 </div>
 
                 {/* Total Available (Today) */}
@@ -949,13 +1090,16 @@ const App: React.FC = () => {
                 </div>
 
                 {/* Sales */}
-                <div className="p-5 bg-gradient-to-br from-emerald-50 to-white rounded-2xl border border-emerald-100 shadow-sm flex flex-col items-center justify-center relative">
+                <div
+                  onClick={() => handleShowDetails('SALE')}
+                  className="p-5 bg-gradient-to-br from-emerald-50 to-white rounded-2xl border border-emerald-100 shadow-sm flex flex-col items-center justify-center relative cursor-pointer hover:shadow-md transition-shadow"
+                >
                   <div className="bg-emerald-100 p-2 rounded-full mb-2">
                     <ShoppingCart size={18} className="text-emerald-600" />
                   </div>
                   <p className="text-[10px] text-emerald-400 font-black uppercase tracking-widest mb-1">Sold</p>
                   <p className="text-2xl md:text-3xl font-black text-emerald-700">{dailyStats.sale}</p>
-                  <p className="text-[10px] text-emerald-300 font-bold">Liters</p>
+                  <p className="text-[10px] text-emerald-300 font-bold">Liters (Click for details)</p>
                 </div>
               </div>
 
@@ -1381,6 +1525,58 @@ const App: React.FC = () => {
               >
                 حذف کریں <Trash2 size={28} />
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Daily Detail Modal */}
+      {dailyDetailModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setDailyDetailModal(prev => ({ ...prev, isOpen: false }))}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200" onClick={e => e.stopPropagation()}>
+            <div className={`p-4 ${dailyDetailModal.type === 'PURCHASE' ? 'bg-rose-50' : 'bg-emerald-50'} border-b border-slate-100 flex items-center justify-between`}>
+              <h3 className={`font-black uppercase tracking-widest ${dailyDetailModal.type === 'PURCHASE' ? 'text-rose-700' : 'text-emerald-700'}`}>
+                {dailyDetailModal.title}
+              </h3>
+              <button
+                onClick={() => setDailyDetailModal(prev => ({ ...prev, isOpen: false }))}
+                className="p-1 hover:bg-black/5 rounded-full transition-colors"
+              >
+                <X size={20} className="text-slate-400" />
+              </button>
+            </div>
+
+            <div className="max-h-[60vh] overflow-y-auto p-2">
+              {dailyDetailModal.data.length === 0 ? (
+                <div className="p-8 text-center text-slate-400">
+                  <p>No records found for this day.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {dailyDetailModal.data.map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${dailyDetailModal.type === 'PURCHASE' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                          {item.name.charAt(0)}
+                        </div>
+                        <p className="font-bold text-slate-700">{item.name}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className={`font-black text-lg ${dailyDetailModal.type === 'PURCHASE' ? 'text-rose-600' : 'text-emerald-600'}`}>
+                          {item.quantity}
+                        </p>
+                        <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Liters</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total</p>
+              <p className={`text-2xl font-black ${dailyDetailModal.type === 'PURCHASE' ? 'text-rose-700' : 'text-emerald-700'}`}>
+                {dailyDetailModal.total} <span className="text-sm font-bold opacity-60">Liters</span>
+              </p>
             </div>
           </div>
         </div>
