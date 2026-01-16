@@ -257,37 +257,6 @@ const App: React.FC = () => {
   const [isEditingStock, setIsEditingStock] = useState(false);
   const [manualStockInput, setManualStockInput] = useState('');
 
-  // Daily Detail Modal State
-  const [dailyDetailModal, setDailyDetailModal] = useState<{
-    isOpen: boolean;
-    title: string;
-    type: 'PURCHASE' | 'SALE' | null;
-    data: { name: string; quantity: number }[];
-    total: number;
-  }>({ isOpen: false, title: '', type: null, data: [], total: 0 });
-
-  const handleShowDetails = (type: 'PURCHASE' | 'SALE') => {
-    const list = type === 'PURCHASE' ? dashboardData.purchases : dashboardData.sales;
-    const filteredData = list.map(c => {
-      const dailyRecord = c.records.find(r => r.date === dailyDate);
-      return {
-        name: c.name,
-        quantity: dailyRecord?.totalQuantity || 0
-      };
-    }).filter(item => item.quantity > 0)
-      .sort((a, b) => b.quantity - a.quantity);
-
-    const total = filteredData.reduce((sum, item) => sum + item.quantity, 0);
-
-    setDailyDetailModal({
-      isOpen: true,
-      title: type === 'PURCHASE' ? 'Today\'s Purchases' : 'Today\'s Sales',
-      type,
-      data: filteredData,
-      total
-    });
-  };
-
   useEffect(() => {
     if (viewState === 'MAIN_MENU') {
       const fetchDaily = async () => {
@@ -1069,16 +1038,14 @@ const App: React.FC = () => {
 
                 {/* Purchase */}
                 {/* Purchase */}
-                <div
-                  onClick={() => handleShowDetails('PURCHASE')}
-                  className="p-5 bg-gradient-to-br from-rose-50 to-white rounded-2xl border border-rose-100 shadow-sm flex flex-col items-center justify-center cursor-pointer hover:shadow-md transition-shadow"
-                >
+                {/* Purchase */}
+                <div className="p-5 bg-gradient-to-br from-rose-50 to-white rounded-2xl border border-rose-100 shadow-sm flex flex-col items-center justify-center">
                   <div className="bg-rose-100 p-2 rounded-full mb-2">
                     <History size={18} className="text-rose-600" />
                   </div>
                   <p className="text-[10px] text-rose-400 font-black uppercase tracking-widest mb-1">Purchase</p>
                   <p className="text-2xl md:text-3xl font-black text-rose-700">{dailyStats.purchase}</p>
-                  <p className="text-[10px] text-rose-300 font-bold">Liters (Click for details)</p>
+                  <p className="text-[10px] text-rose-300 font-bold">Liters</p>
                 </div>
 
                 {/* Total Available (Today) */}
@@ -1091,16 +1058,14 @@ const App: React.FC = () => {
                 </div>
 
                 {/* Sales */}
-                <div
-                  onClick={() => handleShowDetails('SALE')}
-                  className="p-5 bg-gradient-to-br from-emerald-50 to-white rounded-2xl border border-emerald-100 shadow-sm flex flex-col items-center justify-center relative cursor-pointer hover:shadow-md transition-shadow"
-                >
+                {/* Sales */}
+                <div className="p-5 bg-gradient-to-br from-emerald-50 to-white rounded-2xl border border-emerald-100 shadow-sm flex flex-col items-center justify-center relative">
                   <div className="bg-emerald-100 p-2 rounded-full mb-2">
                     <ShoppingCart size={18} className="text-emerald-600" />
                   </div>
                   <p className="text-[10px] text-emerald-400 font-black uppercase tracking-widest mb-1">Sold</p>
                   <p className="text-2xl md:text-3xl font-black text-emerald-700">{dailyStats.sale}</p>
-                  <p className="text-[10px] text-emerald-300 font-bold">Liters (Click for details)</p>
+                  <p className="text-[10px] text-emerald-300 font-bold">Liters</p>
                 </div>
               </div>
 
@@ -1526,58 +1491,6 @@ const App: React.FC = () => {
               >
                 حذف کریں <Trash2 size={28} />
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* Daily Detail Modal */}
-      {dailyDetailModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setDailyDetailModal(prev => ({ ...prev, isOpen: false }))}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200" onClick={e => e.stopPropagation()}>
-            <div className={`p-4 ${dailyDetailModal.type === 'PURCHASE' ? 'bg-rose-50' : 'bg-emerald-50'} border-b border-slate-100 flex items-center justify-between`}>
-              <h3 className={`font-black uppercase tracking-widest ${dailyDetailModal.type === 'PURCHASE' ? 'text-rose-700' : 'text-emerald-700'}`}>
-                {dailyDetailModal.title}
-              </h3>
-              <button
-                onClick={() => setDailyDetailModal(prev => ({ ...prev, isOpen: false }))}
-                className="p-1 hover:bg-black/5 rounded-full transition-colors"
-              >
-                <X size={20} className="text-slate-400" />
-              </button>
-            </div>
-
-            <div className="max-h-[60vh] overflow-y-auto p-2">
-              {dailyDetailModal.data.length === 0 ? (
-                <div className="p-8 text-center text-slate-400">
-                  <p>No records found for this day.</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {dailyDetailModal.data.map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${dailyDetailModal.type === 'PURCHASE' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                          {item.name.charAt(0)}
-                        </div>
-                        <p className="font-bold text-slate-700">{item.name}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className={`font-black text-lg ${dailyDetailModal.type === 'PURCHASE' ? 'text-rose-600' : 'text-emerald-600'}`}>
-                          {item.quantity}
-                        </p>
-                        <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Liters</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total</p>
-              <p className={`text-2xl font-black ${dailyDetailModal.type === 'PURCHASE' ? 'text-rose-700' : 'text-emerald-700'}`}>
-                {dailyDetailModal.total} <span className="text-sm font-bold opacity-60">Liters</span>
-              </p>
             </div>
           </div>
         </div>
