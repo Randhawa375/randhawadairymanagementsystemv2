@@ -1033,7 +1033,7 @@ const App: React.FC = () => {
                       />
                       <button
                         onClick={() => handleUpdateStock(false)}
-                        className="ml-2 bg-emerald-700 text-white p-1.5 rounded-lg shadow-md hover:bg-emerald-800 active:scale-95 transition-all"
+                        className="ml-2 bg-emerald-500 text-white p-1.5 rounded-lg shadow-md hover:bg-emerald-600 active:scale-95 transition-all"
                       >
                         <Check size={14} />
                       </button>
@@ -1058,28 +1058,27 @@ const App: React.FC = () => {
                 </div>
 
                 {/* Farm */}
-                {/* Farm */}
-                <div className="p-5 bg-blue-600 rounded-2xl shadow-lg shadow-blue-200 flex flex-col items-center justify-center border border-blue-500">
-                  <div className="bg-white/20 p-2 rounded-full mb-2 backdrop-blur-sm">
-                    <Tractor size={18} className="text-white" />
+                <div className="p-5 bg-gradient-to-br from-blue-50 to-white rounded-2xl border border-blue-100 shadow-sm flex flex-col items-center justify-center">
+                  <div className="bg-blue-100 p-2 rounded-full mb-2">
+                    <Tractor size={18} className="text-blue-600" />
                   </div>
-                  <p className="text-[10px] text-blue-100 font-black uppercase tracking-widest mb-1 opacity-80">Farm</p>
-                  <p className="text-2xl md:text-3xl font-black text-white">{dailyStats.farm}</p>
-                  <p className="text-[10px] text-blue-100 font-bold opacity-60">Liters</p>
+                  <p className="text-[10px] text-blue-400 font-black uppercase tracking-widest mb-1">Farm</p>
+                  <p className="text-2xl md:text-3xl font-black text-blue-700">{dailyStats.farm}</p>
+                  <p className="text-[10px] text-blue-300 font-bold">Liters</p>
                 </div>
 
                 {/* Purchase */}
                 {/* Purchase */}
                 <div
                   onClick={() => handleShowDetails('PURCHASE')}
-                  className="p-5 bg-rose-600 rounded-2xl shadow-lg shadow-rose-200 flex flex-col items-center justify-center cursor-pointer hover:-translate-y-1 transition-all active:scale-95 border border-rose-500"
+                  className="p-5 bg-gradient-to-br from-rose-50 to-white rounded-2xl border border-rose-100 shadow-sm flex flex-col items-center justify-center cursor-pointer hover:shadow-md transition-shadow"
                 >
-                  <div className="bg-white/20 p-2 rounded-full mb-2 backdrop-blur-sm">
-                    <History size={18} className="text-white" />
+                  <div className="bg-rose-100 p-2 rounded-full mb-2">
+                    <History size={18} className="text-rose-600" />
                   </div>
-                  <p className="text-[10px] text-rose-100 font-black uppercase tracking-widest mb-1 opacity-80">Purchase</p>
-                  <p className="text-2xl md:text-3xl font-black text-white">{dailyStats.purchase}</p>
-                  <p className="text-[10px] text-rose-100 font-bold opacity-60">Liters (Click for details)</p>
+                  <p className="text-[10px] text-rose-400 font-black uppercase tracking-widest mb-1">Purchase</p>
+                  <p className="text-2xl md:text-3xl font-black text-rose-700">{dailyStats.purchase}</p>
+                  <p className="text-[10px] text-rose-300 font-bold">Liters (Click for details)</p>
                 </div>
 
                 {/* Total Available (Today) */}
@@ -1093,14 +1092,14 @@ const App: React.FC = () => {
                 {/* Sales */}
                 <div
                   onClick={() => handleShowDetails('SALE')}
-                  className="p-5 bg-emerald-600 rounded-2xl shadow-lg shadow-emerald-200 flex flex-col items-center justify-center relative cursor-pointer hover:-translate-y-1 transition-all active:scale-95 border border-emerald-500"
+                  className="p-5 bg-gradient-to-br from-emerald-50 to-white rounded-2xl border border-emerald-100 shadow-sm flex flex-col items-center justify-center relative cursor-pointer hover:shadow-md transition-shadow"
                 >
-                  <div className="bg-white/20 p-2 rounded-full mb-2 backdrop-blur-sm">
-                    <ShoppingCart size={18} className="text-white" />
+                  <div className="bg-emerald-100 p-2 rounded-full mb-2">
+                    <ShoppingCart size={18} className="text-emerald-600" />
                   </div>
-                  <p className="text-[10px] text-emerald-100 font-black uppercase tracking-widest mb-1 opacity-80">Sold</p>
-                  <p className="text-2xl md:text-3xl font-black text-white">{dailyStats.sale}</p>
-                  <p className="text-[10px] text-emerald-100 font-bold opacity-60">Liters (Click for details)</p>
+                  <p className="text-[10px] text-emerald-400 font-black uppercase tracking-widest mb-1">Sold</p>
+                  <p className="text-2xl md:text-3xl font-black text-emerald-700">{dailyStats.sale}</p>
+                  <p className="text-[10px] text-emerald-300 font-bold">Liters (Click for details)</p>
                 </div>
               </div>
 
@@ -1154,7 +1153,8 @@ const App: React.FC = () => {
 
               {/* FARM MODULE BUTTON */}
               <button
-                className="group relative bg-blue-600 p-8 rounded-[2.5rem] shadow-xl shadow-blue-100 hover:-translate-y-1 transition-all active:scale-95 text-right border-4 border-white overflow-hidden cursor-default"
+                onClick={() => handleSelectModule('FARM')}
+                className="group relative bg-blue-600 p-8 rounded-[2.5rem] shadow-xl shadow-blue-100 hover:-translate-y-1 transition-all active:scale-95 text-right border-4 border-white overflow-hidden"
               >
                 <div className="relative z-10 flex flex-col justify-between h-full min-h-[140px]">
                   <div className="bg-white p-4 rounded-2xl text-blue-600 w-16 h-16 flex items-center justify-center shadow-lg mb-4">
@@ -1168,7 +1168,8 @@ const App: React.FC = () => {
               </button>
 
               <button
-                className="group relative bg-rose-600 p-8 rounded-[2.5rem] shadow-xl shadow-rose-100 hover:-translate-y-1 transition-all active:scale-95 text-right border-4 border-white overflow-hidden cursor-default"
+                onClick={() => handleSelectModule('PURCHASE')}
+                className="group relative bg-rose-600 p-8 rounded-[2.5rem] shadow-xl shadow-rose-100 hover:-translate-y-1 transition-all active:scale-95 text-right border-4 border-white overflow-hidden"
               >
                 <div className="relative z-10 flex flex-col justify-between h-full min-h-[140px]">
                   <div className="bg-white p-4 rounded-2xl text-rose-600 w-16 h-16 flex items-center justify-center shadow-lg mb-4">
@@ -1182,7 +1183,8 @@ const App: React.FC = () => {
               </button>
 
               <button
-                className="group relative bg-emerald-600 p-8 rounded-[2.5rem] shadow-xl shadow-emerald-100 hover:-translate-y-1 transition-all active:scale-95 text-right border-4 border-white overflow-hidden cursor-default"
+                onClick={() => handleSelectModule('SALE')}
+                className="group relative bg-emerald-600 p-8 rounded-[2.5rem] shadow-xl shadow-emerald-100 hover:-translate-y-1 transition-all active:scale-95 text-right border-4 border-white overflow-hidden"
               >
                 <div className="relative z-10 flex flex-col justify-between h-full min-h-[140px]">
                   <div className="bg-white p-4 rounded-2xl text-emerald-600 w-16 h-16 flex items-center justify-center shadow-lg mb-4">
@@ -1217,15 +1219,7 @@ const App: React.FC = () => {
                   </div>
                 ) : (
                   payableList.map(item => (
-                    <div
-                      key={item.id}
-                      onClick={() => {
-                        setActiveModule('PURCHASE');
-                        setSelectedContactId(item.id);
-                        setViewState('PROFILE');
-                      }}
-                      className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-rose-200 transition-all group cursor-pointer hover:shadow-md active:scale-[0.99]"
-                    >
+                    <div key={item.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-rose-200 transition-all group">
                       <div className="flex items-center gap-4">
                         <div className="text-rose-600 font-black text-lg">
                           {item.balance.toLocaleString()} <span className="text-[10px] text-slate-400">روپے</span>
@@ -1265,15 +1259,7 @@ const App: React.FC = () => {
                   </div>
                 ) : (
                   receivableList.map(item => (
-                    <div
-                      key={item.id}
-                      onClick={() => {
-                        setActiveModule('SALE');
-                        setSelectedContactId(item.id);
-                        setViewState('PROFILE');
-                      }}
-                      className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-emerald-200 transition-all group cursor-pointer hover:shadow-md active:scale-[0.99]"
-                    >
+                    <div key={item.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-emerald-200 transition-all group">
                       <div className="flex items-center gap-4">
                         <div className="text-emerald-600 font-black text-lg">
                           {item.balance.toLocaleString()} <span className="text-[10px] text-slate-400">روپے</span>
