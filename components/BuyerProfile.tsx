@@ -251,7 +251,8 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
       printContainer.style.width = "210mm"; // A4 Width
       printContainer.style.minHeight = "297mm";
       printContainer.style.position = 'absolute';
-      printContainer.style.top = '-9999px'; // Hide off-screen
+      printContainer.style.left = '-10000px'; // Move horizontally off-screen
+      printContainer.style.top = '0'; // Keep top aligned to avoid height glitches
       document.body.appendChild(printContainer);
 
       // Render the content (Construct HTML strings or use ReactDOM.render if complex, but simple HTML is fast)
@@ -344,17 +345,19 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
           </table>
 
           <!-- Payments Table -->
-          <h3 class="text-sm font-bold text-gray-500 uppercase tracking-widest mb-2">وصولی / ادائیگی (Payments)</h3>
-          <table class="w-full text-right border border-gray-200 rounded-lg overflow-hidden mb-6">
-            <thead class="bg-gray-800 text-white">
-              <tr>
-                <th class="p-2 font-bold text-sm border-r border-white/20">تاریخ</th>
-                <th class="p-2 font-bold text-sm text-center">تفصیل</th>
-                <th class="p-2 font-bold text-sm text-left">رقم</th>
-              </tr>
-            </thead>
-            <tbody>${paymentRows}</tbody>
-          </table>
+          <div style="margin-top: 40px; page-break-inside: avoid;">
+            <h3 class="text-sm font-bold text-gray-500 uppercase tracking-widest mb-2">وصولی / ادائیگی (Payments)</h3>
+            <table class="w-full text-right border border-gray-200 rounded-lg overflow-hidden mb-6">
+              <thead class="bg-gray-800 text-white">
+                <tr>
+                  <th class="p-2 font-bold text-sm border-r border-white/20">تاریخ</th>
+                  <th class="p-2 font-bold text-sm text-center">تفصیل</th>
+                  <th class="p-2 font-bold text-sm text-left">رقم</th>
+                </tr>
+              </thead>
+              <tbody>${paymentRows}</tbody>
+            </table>
+          </div>
 
           <!-- Summary -->
           <div class="flex justify-end mt-10">
@@ -387,15 +390,27 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
       // Wait a moment for rendering
       await new Promise(resolve => setTimeout(resolve, 100));
 
+      // Cleanup function to avoid memory leaks
+      const cleanup = () => {
+        if (document.body.contains(printContainer)) {
+          document.body.removeChild(printContainer);
+        }
+      };
+
+      // Wait a moment for rendering
+      await new Promise(resolve => setTimeout(resolve, 500)); // Increase wait time
+
       // Capture
       const canvas = await html2canvas(printContainer, {
         scale: 2, // High resolution
         useCORS: true,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        logging: false,
+        windowWidth: 210 * 3.7795275591, // A4 width in px (approx)
+        height: printContainer.scrollHeight // EXPLICIT HEIGHT to prevent extra whitespace
       });
 
-      // Cleanup
-      document.body.removeChild(printContainer);
+      cleanup();
 
       // Generate PDF (Multi-Page Support)
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
@@ -420,8 +435,8 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
       pageCount++;
 
       // Subsequent Pages
-      while (heightLeft > 0) {
-        position = heightLeft - scaledHeight; // Negative offset moves image up
+      while (heightLeft > 5) { // Threshold of 5mm to avoid tiny slivers creating a new page
+        position = heightLeft - scaledHeight;
         pdf.addPage();
         pdf.addImage(imgData, 'JPEG', 0, -(pageHeight * pageCount), pageWidth, scaledHeight);
         heightLeft -= pageHeight;
@@ -446,7 +461,8 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
       printContainer.style.width = "210mm";
       printContainer.style.minHeight = "297mm";
       printContainer.style.position = 'absolute';
-      printContainer.style.top = '-9999px';
+      printContainer.style.left = '-10000px'; // Move horizontally off-screen
+      printContainer.style.top = '0'; // Keep top aligned to avoid height glitches
       document.body.appendChild(printContainer);
 
       const engMonth = getEnglishMonthLabel(selectedMonthDate);
