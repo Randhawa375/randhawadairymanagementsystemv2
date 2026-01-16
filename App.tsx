@@ -359,7 +359,7 @@ const App: React.FC = () => {
   // Derived Totals for UI
   const totalAvailable = (dailyStats.openingStock !== undefined && dailyStats.openingStock !== null)
     ? dailyStats.openingStock + dailyStats.farm + dailyStats.purchase
-    : dailyStats.prevStock + dailyStats.farm + dailyStats.purchase;
+    : dailyStats.farm + dailyStats.purchase;
 
   const netRemaining = totalAvailable - dailyStats.sale;
 
@@ -1057,7 +1057,7 @@ const App: React.FC = () => {
                   <div className="absolute top-0 left-0 w-full h-1 bg-slate-200"></div>
                   <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Total Available</p>
                   <p className="text-2xl md:text-3xl font-black text-slate-700">{totalAvailable}</p>
-                  <p className="text-[10px] text-slate-300 font-bold">(Prev+Farm+Pur)</p>
+                  <p className="text-[10px] text-slate-300 font-bold">(Farm+Pur)</p>
                 </div>
 
                 {/* Sales */}
