@@ -12,7 +12,7 @@ import { supabase } from './lib/supabase';
 import { api } from './lib/api';
 
 const App: React.FC = () => {
-  const [viewState, setViewState] = useState<ViewState>('MAIN_MENU');
+  const [viewState, setViewState] = useState<ViewState>('AUTH');
   const [activeModule, setActiveModule] = useState<ModuleType | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
@@ -71,7 +71,7 @@ const App: React.FC = () => {
         setViewState('MAIN_MENU');
         checkForMigration();
       } else {
-        // setViewState('AUTH');
+        setViewState('AUTH');
         setContacts([]);
       }
     });
@@ -1154,8 +1154,7 @@ const App: React.FC = () => {
 
               {/* FARM MODULE BUTTON */}
               <button
-                onClick={() => handleSelectModule('FARM')}
-                className="group relative bg-blue-600 p-8 rounded-[2.5rem] shadow-xl shadow-blue-100 hover:-translate-y-1 transition-all active:scale-95 text-right border-4 border-white overflow-hidden"
+                className="group relative bg-blue-600 p-8 rounded-[2.5rem] shadow-xl shadow-blue-100 hover:-translate-y-1 transition-all active:scale-95 text-right border-4 border-white overflow-hidden cursor-default"
               >
                 <div className="relative z-10 flex flex-col justify-between h-full min-h-[140px]">
                   <div className="bg-white p-4 rounded-2xl text-blue-600 w-16 h-16 flex items-center justify-center shadow-lg mb-4">
@@ -1169,8 +1168,7 @@ const App: React.FC = () => {
               </button>
 
               <button
-                onClick={() => handleSelectModule('PURCHASE')}
-                className="group relative bg-rose-600 p-8 rounded-[2.5rem] shadow-xl shadow-rose-100 hover:-translate-y-1 transition-all active:scale-95 text-right border-4 border-white overflow-hidden"
+                className="group relative bg-rose-600 p-8 rounded-[2.5rem] shadow-xl shadow-rose-100 hover:-translate-y-1 transition-all active:scale-95 text-right border-4 border-white overflow-hidden cursor-default"
               >
                 <div className="relative z-10 flex flex-col justify-between h-full min-h-[140px]">
                   <div className="bg-white p-4 rounded-2xl text-rose-600 w-16 h-16 flex items-center justify-center shadow-lg mb-4">
@@ -1184,8 +1182,7 @@ const App: React.FC = () => {
               </button>
 
               <button
-                onClick={() => handleSelectModule('SALE')}
-                className="group relative bg-emerald-600 p-8 rounded-[2.5rem] shadow-xl shadow-emerald-100 hover:-translate-y-1 transition-all active:scale-95 text-right border-4 border-white overflow-hidden"
+                className="group relative bg-emerald-600 p-8 rounded-[2.5rem] shadow-xl shadow-emerald-100 hover:-translate-y-1 transition-all active:scale-95 text-right border-4 border-white overflow-hidden cursor-default"
               >
                 <div className="relative z-10 flex flex-col justify-between h-full min-h-[140px]">
                   <div className="bg-white p-4 rounded-2xl text-emerald-600 w-16 h-16 flex items-center justify-center shadow-lg mb-4">
@@ -1220,7 +1217,15 @@ const App: React.FC = () => {
                   </div>
                 ) : (
                   payableList.map(item => (
-                    <div key={item.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-rose-200 transition-all group">
+                    <div
+                      key={item.id}
+                      onClick={() => {
+                        setActiveModule('PURCHASE');
+                        setSelectedContactId(item.id);
+                        setViewState('PROFILE');
+                      }}
+                      className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-rose-200 transition-all group cursor-pointer hover:shadow-md active:scale-[0.99]"
+                    >
                       <div className="flex items-center gap-4">
                         <div className="text-rose-600 font-black text-lg">
                           {item.balance.toLocaleString()} <span className="text-[10px] text-slate-400">روپے</span>
@@ -1260,7 +1265,15 @@ const App: React.FC = () => {
                   </div>
                 ) : (
                   receivableList.map(item => (
-                    <div key={item.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-emerald-200 transition-all group">
+                    <div
+                      key={item.id}
+                      onClick={() => {
+                        setActiveModule('SALE');
+                        setSelectedContactId(item.id);
+                        setViewState('PROFILE');
+                      }}
+                      className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-emerald-200 transition-all group cursor-pointer hover:shadow-md active:scale-[0.99]"
+                    >
                       <div className="flex items-center gap-4">
                         <div className="text-emerald-600 font-black text-lg">
                           {item.balance.toLocaleString()} <span className="text-[10px] text-slate-400">روپے</span>
