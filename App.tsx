@@ -989,7 +989,7 @@ if (viewState === 'MAIN_MENU') {
               </div>
             </div>
 
-            {/* Grid with 5 Cards now (History added) */}
+            {/* Grid with 5 Cards now (History added) - Updated 01/16/2026 */}
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
               {/* Previous Stock */}
               <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col items-center justify-center col-span-2 md:col-span-1 shadow-sm">
