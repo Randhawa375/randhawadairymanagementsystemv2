@@ -12,7 +12,7 @@ import { supabase } from './lib/supabase';
 import { api } from './lib/api';
 
 const App: React.FC = () => {
-  const [viewState, setViewState] = useState<ViewState>('AUTH');
+  const [viewState, setViewState] = useState<ViewState>('MAIN_MENU');
   const [activeModule, setActiveModule] = useState<ModuleType | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
@@ -71,7 +71,7 @@ const App: React.FC = () => {
         setViewState('MAIN_MENU');
         checkForMigration();
       } else {
-        setViewState('AUTH');
+        // setViewState('AUTH');
         setContacts([]);
       }
     });
