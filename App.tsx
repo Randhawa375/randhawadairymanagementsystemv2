@@ -989,7 +989,17 @@ if (viewState === 'MAIN_MENU') {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+            {/* Grid with 5 Cards now (History added) */}
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
+              {/* Previous Stock */}
+              <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col items-center justify-center col-span-2 md:col-span-1 shadow-sm">
+                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Opening Stock</p>
+                <p className={`text-2xl md:text-3xl font-black ${dailyStats.prevStock < 0 ? 'text-blue-500' : 'text-slate-600'}`}>
+                  {dailyStats.prevStock}
+                </p>
+                <p className="text-[10px] text-slate-300 font-bold">Previous Bal</p>
+              </div>
+
               {/* Farm */}
               <div className="p-5 bg-gradient-to-br from-blue-50 to-white rounded-2xl border border-blue-100 shadow-sm flex flex-col items-center justify-center">
                 <div className="bg-blue-100 p-2 rounded-full mb-2">
@@ -1010,12 +1020,12 @@ if (viewState === 'MAIN_MENU') {
                 <p className="text-[10px] text-rose-300 font-bold">Liters</p>
               </div>
 
-              {/* Total Available */}
+              {/* Total Available (Today) */}
               <div className="p-5 bg-gradient-to-br from-slate-50 to-white rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-center relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-1 bg-slate-200"></div>
-                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Total Stock</p>
-                <p className="text-2xl md:text-3xl font-black text-slate-700">{dailyStats.farm + dailyStats.purchase}</p>
-                <p className="text-[10px] text-slate-300 font-bold">Liters</p>
+                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Total Available</p>
+                <p className="text-2xl md:text-3xl font-black text-slate-700">{dailyStats.prevStock + dailyStats.farm + dailyStats.purchase}</p>
+                <p className="text-[10px] text-slate-300 font-bold">(Prev+Farm+Pur)</p>
               </div>
 
               {/* Sales */}
@@ -1030,23 +1040,23 @@ if (viewState === 'MAIN_MENU') {
             </div>
 
             {/* Balance Bar */}
-            <div className={`mt-6 p-4 rounded-xl border ${dailyStats.farm + dailyStats.purchase - dailyStats.sale >= 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'} flex items-center justify-between`}>
+            <div className={`mt-6 p-4 rounded-xl border ${dailyStats.prevStock + dailyStats.farm + dailyStats.purchase - dailyStats.sale >= 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'} flex items-center justify-between`}>
               <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-full ${dailyStats.farm + dailyStats.purchase - dailyStats.sale >= 0 ? 'bg-emerald-200' : 'bg-red-200'}`}>
-                  {dailyStats.farm + dailyStats.purchase - dailyStats.sale >= 0 ? <Check size={16} className="text-emerald-700" /> : <X size={16} className="text-red-700" />}
+                <div className={`p-2 rounded-full ${dailyStats.prevStock + dailyStats.farm + dailyStats.purchase - dailyStats.sale >= 0 ? 'bg-emerald-200' : 'bg-red-200'}`}>
+                  {dailyStats.prevStock + dailyStats.farm + dailyStats.purchase - dailyStats.sale >= 0 ? <Check size={16} className="text-emerald-700" /> : <X size={16} className="text-red-700" />}
                 </div>
                 <div>
-                  <p className={`text-sm font-black ${dailyStats.farm + dailyStats.purchase - dailyStats.sale >= 0 ? 'text-emerald-800' : 'text-red-800'}`}>
-                    {dailyStats.farm + dailyStats.purchase - dailyStats.sale >= 0 ? "Stock Balanced" : "Stock Shortage!"}
+                  <p className={`text-sm font-black ${dailyStats.prevStock + dailyStats.farm + dailyStats.purchase - dailyStats.sale >= 0 ? 'text-emerald-800' : 'text-red-800'}`}>
+                    {dailyStats.prevStock + dailyStats.farm + dailyStats.purchase - dailyStats.sale >= 0 ? "Stock Balanced" : "Stock Shortage!"}
                   </p>
                   <p className="text-[10px] opacity-70 font-bold uppercase tracking-widest">Status</p>
                 </div>
               </div>
               <div className="text-right">
-                <p className={`text-2xl font-black ${dailyStats.farm + dailyStats.purchase - dailyStats.sale >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
-                  {dailyStats.farm + dailyStats.purchase - dailyStats.sale}
+                <p className={`text-2xl font-black ${dailyStats.prevStock + dailyStats.farm + dailyStats.purchase - dailyStats.sale >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                  {dailyStats.prevStock + dailyStats.farm + dailyStats.purchase - dailyStats.sale}
                 </p>
-                <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">Remaining</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">Remaining / Carry Over</p>
               </div>
             </div>
           </div>
