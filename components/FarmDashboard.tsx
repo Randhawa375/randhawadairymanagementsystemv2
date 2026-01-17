@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FarmRecord } from '../types';
 import { api } from '../lib/api';
 import { formatUrduDate } from '../utils';
-import { Milk, Save, ArrowLeft, Calendar, Droplets } from 'lucide-react';
+import { Milk, Save, ArrowLeft, Calendar, Droplets, Edit2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 interface FarmDashboardProps {
@@ -151,7 +151,7 @@ const FarmDashboard: React.FC<FarmDashboardProps> = ({ onBack }) => {
                         <div className="text-center py-10 text-slate-400 font-bold">کوئی ریکارڈ موجود نہیں</div>
                     ) : (
                         records.map(rec => (
-                            <div key={rec.id} className="bg-white p-5 rounded-2xl border border-slate-100 flex items-center justify-between shadow-sm">
+                            <div key={rec.id} className="bg-white p-5 rounded-2xl border border-slate-100 flex items-center justify-between shadow-sm group">
                                 <div className="text-left">
                                     <div className="bg-blue-50 text-blue-700 px-3 py-1 rounded-lg text-xs font-black inline-block mb-1">
                                         {rec.totalQuantity} L
@@ -170,9 +170,20 @@ const FarmDashboard: React.FC<FarmDashboardProps> = ({ onBack }) => {
                                     </div>
                                 </div>
 
-                                <div className="text-right">
+                                <div className="text-right flex flex-col items-end">
                                     <p className="font-bold text-slate-900">{formatUrduDate(rec.date)}</p>
                                     <p className="text-xs text-slate-400 mt-0.5">{rec.date}</p>
+                                    <button
+                                        onClick={() => {
+                                            setDate(rec.date);
+                                            setMorning(rec.morningQuantity.toString());
+                                            setEvening(rec.eveningQuantity.toString());
+                                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                                        }}
+                                        className="mt-2 text-xs font-bold text-blue-500 hover:text-blue-700 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1"
+                                    >
+                                        <Edit2 size={12} /> Edit
+                                    </button>
                                 </div>
                             </div>
                         ))

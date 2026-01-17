@@ -252,6 +252,8 @@ const App: React.FC = () => {
 
   // --- DAILY INSIGHT LOGIC ---
   const [dailyDate, setDailyDate] = useState(new Date().toISOString().split('T')[0]);
+  const [detailModalMode, setDetailModalMode] = useState<'SALE' | 'PURCHASE' | null>(null);
+
   // Add openingStock (manual) to dailyStats. Can be null if hybrid/auto.
   const [dailyStats, setDailyStats] = useState({ farm: 0, purchase: 0, sale: 0, prevStock: 0, openingStock: undefined as number | null | undefined });
   const [isEditingStock, setIsEditingStock] = useState(false);
@@ -1088,16 +1090,22 @@ const App: React.FC = () => {
                 {/* Purchase */}
                 {/* Purchase */}
                 {/* Purchase */}
-                <div className="p-5 bg-gradient-to-br from-rose-50 to-white rounded-2xl border border-rose-100 shadow-sm flex flex-col items-center justify-center">
-                  <div className="bg-rose-100 p-2 rounded-full mb-2">
+                {/* Purchase */}
+                <div
+                  onClick={() => setDetailModalMode('PURCHASE')}
+                  className="p-5 bg-gradient-to-br from-rose-50 to-white rounded-2xl border border-rose-100 shadow-sm flex flex-col items-center justify-center cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all active:scale-95 group"
+                >
+                  <div className="bg-rose-100 p-2 rounded-full mb-2 group-hover:bg-rose-200 transition-colors">
                     <History size={18} className="text-rose-600" />
                   </div>
                   <p className="text-[10px] text-rose-400 font-black uppercase tracking-widest mb-1">Purchase</p>
                   <p className="text-2xl md:text-3xl font-black text-rose-700">{dailyStats.purchase}</p>
                   <p className="text-[10px] text-rose-300 font-bold">Liters</p>
+                  <div className="mt-2 text-[10px] text-rose-400 font-bold bg-white px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm">
+                    View Details
+                  </div>
                 </div>
 
-                {/* Total Available (Today) */}
                 {/* Total Available (Today) */}
                 <div className="p-5 bg-gradient-to-br from-slate-50 to-white rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-center relative overflow-hidden">
                   <div className="absolute top-0 left-0 w-full h-1 bg-slate-200"></div>
@@ -1107,14 +1115,19 @@ const App: React.FC = () => {
                 </div>
 
                 {/* Sales */}
-                {/* Sales */}
-                <div className="p-5 bg-gradient-to-br from-emerald-50 to-white rounded-2xl border border-emerald-100 shadow-sm flex flex-col items-center justify-center relative">
-                  <div className="bg-emerald-100 p-2 rounded-full mb-2">
+                <div
+                  onClick={() => setDetailModalMode('SALE')}
+                  className="p-5 bg-gradient-to-br from-emerald-50 to-white rounded-2xl border border-emerald-100 shadow-sm flex flex-col items-center justify-center relative cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all active:scale-95 group"
+                >
+                  <div className="bg-emerald-100 p-2 rounded-full mb-2 group-hover:bg-emerald-200 transition-colors">
                     <ShoppingCart size={18} className="text-emerald-600" />
                   </div>
                   <p className="text-[10px] text-emerald-400 font-black uppercase tracking-widest mb-1">Sold</p>
                   <p className="text-2xl md:text-3xl font-black text-emerald-700">{dailyStats.sale}</p>
                   <p className="text-[10px] text-emerald-300 font-bold">Liters</p>
+                  <div className="mt-2 text-[10px] text-emerald-400 font-bold bg-white px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm">
+                    View Details
+                  </div>
                 </div>
               </div>
 
@@ -1539,6 +1552,78 @@ const App: React.FC = () => {
                 className="w-full bg-rose-50 text-rose-600 py-6 rounded-2xl font-black text-base flex items-center justify-center gap-3 active:scale-95 transition-all border border-rose-100"
               >
                 حذف کریں <Trash2 size={28} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* DETAIL MODAL FOR DAILY INSIGHT */}
+      {detailModalMode && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm fade-in">
+          <div className="bg-white w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl scale-in">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div>
+                <h3 className="text-xl font-black text-slate-800">
+                  {detailModalMode === 'SALE' ? 'دودھ کی فروخت' : 'دودھ کی خریداری'}
+                </h3>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
+                  {dailyDate} - تفصیل
+                </p>
+              </div>
+              <button onClick={() => setDetailModalMode(null)} className="p-2 bg-white rounded-full hover:bg-slate-100 transition-all shadow-sm border border-slate-100">
+                <X size={20} className="text-slate-400" />
+              </button>
+            </div>
+
+            <div className="max-h-[60vh] overflow-y-auto p-4">
+              <table className="w-full text-right">
+                <thead className="bg-slate-100 text-slate-500 text-xs uppercase font-black sticky top-0">
+                  <tr>
+                    <th className="p-3 rounded-r-xl">نام</th>
+                    <th className="p-3 text-center">مقدار (لیٹر)</th>
+                    <th className="p-3 text-center rounded-l-xl">کل قیمت</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {(detailModalMode === 'SALE' ? dashboardData.sales : dashboardData.purchases)
+                    .map(contact => {
+                      const record = contact.records.find(r => r.date === dailyDate);
+                      if (!record || record.totalQuantity <= 0) return null;
+                      return (
+                        <tr key={contact.id} className="group hover:bg-slate-50 transition-colors">
+                          <td className="p-4 font-bold text-slate-700">{contact.name}</td>
+                          <td className="p-4 text-center font-black text-slate-900 bg-slate-50/50 rounded-lg group-hover:bg-white border border-transparent group-hover:border-slate-100 transition-all">
+                            {record.totalQuantity}
+                          </td>
+                          <td className="p-4 text-center text-xs font-bold text-slate-400 font-mono">
+                            {record.totalPrice.toLocaleString()}
+                          </td>
+                        </tr>
+                      );
+                    })
+                    .filter(Boolean)}
+
+                  {/* Empty State */}
+                  {!(detailModalMode === 'SALE' ? dashboardData.sales : dashboardData.purchases).some(c => c.records.some(r => r.date === dailyDate && r.totalQuantity > 0)) && (
+                    <tr>
+                      <td colSpan={3} className="text-center py-10">
+                        <div className="flex flex-col items-center justify-center opacity-40">
+                          <Milk size={48} className="mb-2" />
+                          <p className="font-bold text-sm">کوئی ریکارڈ موجود نہیں</p>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="p-4 bg-slate-50 border-t border-slate-100 text-center">
+              <button
+                onClick={() => setDetailModalMode(null)}
+                className="bg-slate-900 text-white w-full py-4 rounded-2xl font-black shadow-lg shadow-slate-200 active:scale-95 transition-all"
+              >
+                بند کریں
               </button>
             </div>
           </div>
