@@ -1560,6 +1560,15 @@ const App: React.FC = () => {
       {/* DETAIL MODAL FOR DAILY INSIGHT */}
       {detailModalMode && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm fade-in">
+          {(() => {
+            console.log("Rendering Detail Modal:", detailModalMode);
+            console.log("Daily Date:", dailyDate);
+            const data = detailModalMode === 'SALE' ? dashboardData.sales : dashboardData.purchases;
+            console.log("Data count:", data.length);
+            const filtered = data.filter(c => c.records.some(r => r.date === dailyDate && r.totalQuantity > 0));
+            console.log("Filtered count with records:", filtered.length);
+            return null;
+          })()}
           <div className="bg-white w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl scale-in">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <div>
