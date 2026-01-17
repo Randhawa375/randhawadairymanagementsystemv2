@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FarmRecord } from '../types';
 import { api } from '../lib/api';
 import { formatUrduDate } from '../utils';
-import { Milk, Save, ArrowLeft, Calendar, Droplets, Edit2 } from 'lucide-react';
+import { Milk, Save, ArrowLeft, Calendar, Droplets, Edit2, X } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 interface FarmDashboardProps {
@@ -17,6 +17,7 @@ const FarmDashboard: React.FC<FarmDashboardProps> = ({ onBack }) => {
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [morning, setMorning] = useState('');
     const [evening, setEvening] = useState('');
+    const [isEditing, setIsEditing] = useState(false);
 
     useEffect(() => {
         loadRecords();
@@ -28,12 +29,14 @@ const FarmDashboard: React.FC<FarmDashboardProps> = ({ onBack }) => {
             const data = await api.getFarmRecords();
             setRecords(data);
 
-            // If we have a record for today, pre-fill
-            const today = new Date().toISOString().split('T')[0];
-            const todayRec = data.find(r => r.date === today);
-            if (todayRec) {
-                setMorning(todayRec.morningQuantity.toString());
-                setEvening(todayRec.eveningQuantity.toString());
+            // If we have a record for today, pre-fill ONLY if not editing something else
+            if (!isEditing) {
+                const today = new Date().toISOString().split('T')[0];
+                const todayRec = data.find(r => r.date === today);
+                if (todayRec) {
+                    setMorning(todayRec.morningQuantity.toString());
+                    setEvening(todayRec.eveningQuantity.toString());
+                }
             }
         } catch (e) {
             console.error(e);
@@ -47,7 +50,9 @@ const FarmDashboard: React.FC<FarmDashboardProps> = ({ onBack }) => {
         const m = parseFloat(morning) || 0;
         const e = parseFloat(evening) || 0;
 
-        if (m === 0 && e === 0) return;
+        // Allow saving 0 if we really mean to clear it? Or assume deletion? 
+        // For now, let's allow it but typically 0 means no record.
+        // if (m === 0 && e === 0) return; 
 
         const newRecord: FarmRecord = {
             id: uuidv4(),
@@ -71,11 +76,29 @@ const FarmDashboard: React.FC<FarmDashboardProps> = ({ onBack }) => {
         try {
             await api.addFarmRecord(newRecord);
             alert("ریکارڈ محفوظ ہو گیا!");
+            setIsEditing(false); // Clear edit mode
+
+            // If we were editing, maybe clear form?
+            // If we just saved "Today", we keep it there.
+            if (date !== new Date().toISOString().split('T')[0]) {
+                // Reset to today if we edited a past record
+                setDate(new Date().toISOString().split('T')[0]);
+                setMorning('');
+                setEvening('');
+            }
         } catch (e) {
             console.error(e);
             alert("محفوظ نہیں ہو سکا۔");
             loadRecords(); // Revert on fail
         }
+    };
+
+    const handleCancelEdit = () => {
+        setIsEditing(false);
+        setDate(new Date().toISOString().split('T')[0]);
+        setMorning('');
+        setEvening('');
+        loadRecords(); // Reload to ensure 'today' default logic runs
     };
 
     return (
@@ -94,12 +117,22 @@ const FarmDashboard: React.FC<FarmDashboardProps> = ({ onBack }) => {
 
             <div className="flex-1 overflow-y-auto p-6 pb-32">
                 {/* Input Card */}
-                <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-8">
-                    <div className="flex items-center gap-3 mb-6">
-                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                            <Calendar size={20} />
+                <div className={`bg-white rounded-3xl p-6 shadow-sm border ${isEditing ? 'border-blue-500 ring-4 ring-blue-500/10' : 'border-slate-100'} mb-8 transition-all`}>
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-full ${isEditing ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-600'} flex items-center justify-center transition-colors`}>
+                                {isEditing ? <Edit2 size={20} /> : <Calendar size={20} />}
+                            </div>
+                            <div>
+                                <h3 className="font-black text-slate-800 text-lg">{isEditing ? 'ریکارڈ میں تبدیلی' : 'آج کی انٹری'}</h3>
+                                {isEditing && <p className="text-xs text-blue-600 font-bold">You are editing a past record</p>}
+                            </div>
                         </div>
-                        <h3 className="font-black text-slate-800 text-lg">آج کی انٹری</h3>
+                        {isEditing && (
+                            <button onClick={handleCancelEdit} className="text-slate-400 hover:text-slate-600 p-2 bg-slate-100 rounded-full transition-all">
+                                <X size={20} />
+                            </button>
+                        )}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -109,7 +142,7 @@ const FarmDashboard: React.FC<FarmDashboardProps> = ({ onBack }) => {
                                 type="date"
                                 value={date}
                                 onChange={(e) => setDate(e.target.value)}
-                                className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-slate-900 outline-none border-2 border-slate-100 focus:border-blue-500 transition-all text-right"
+                                className={`w-full p-4 bg-slate-50 rounded-2xl font-bold text-slate-900 outline-none border-2 ${isEditing ? 'border-blue-200 focus:border-blue-500' : 'border-slate-100 focus:border-blue-500'} transition-all text-right`}
                             />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
@@ -120,7 +153,7 @@ const FarmDashboard: React.FC<FarmDashboardProps> = ({ onBack }) => {
                                     placeholder="0"
                                     value={morning}
                                     onChange={(e) => setMorning(e.target.value)}
-                                    className="w-full p-4 bg-slate-50 rounded-2xl font-black text-xl text-center text-slate-900 outline-none border-2 border-slate-100 focus:border-blue-500 transition-all"
+                                    className={`w-full p-4 bg-slate-50 rounded-2xl font-black text-xl text-center text-slate-900 outline-none border-2 ${isEditing ? 'border-blue-200 focus:border-blue-500' : 'border-slate-100 focus:border-blue-500'} transition-all`}
                                 />
                             </div>
                             <div>
@@ -130,16 +163,21 @@ const FarmDashboard: React.FC<FarmDashboardProps> = ({ onBack }) => {
                                     placeholder="0"
                                     value={evening}
                                     onChange={(e) => setEvening(e.target.value)}
-                                    className="w-full p-4 bg-slate-50 rounded-2xl font-black text-xl text-center text-slate-900 outline-none border-2 border-slate-100 focus:border-blue-500 transition-all"
+                                    className={`w-full p-4 bg-slate-50 rounded-2xl font-black text-xl text-center text-slate-900 outline-none border-2 ${isEditing ? 'border-blue-200 focus:border-blue-500' : 'border-slate-100 focus:border-blue-500'} transition-all`}
                                 />
                             </div>
                         </div>
                     </div>
 
-                    <div className="mt-8">
-                        <button onClick={handleSave} className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-blue-100 hover:bg-blue-700 active:scale-95 transition-all flex items-center justify-center gap-3">
+                    <div className="mt-8 flex gap-3">
+                        {isEditing && (
+                            <button onClick={handleCancelEdit} className="flex-1 bg-slate-100 text-slate-600 py-4 rounded-2xl font-black text-lg hover:bg-slate-200 active:scale-95 transition-all">
+                                Cancel
+                            </button>
+                        )}
+                        <button onClick={handleSave} className={`flex-[2] ${isEditing ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-600 hover:bg-blue-700'} text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-blue-100 active:scale-95 transition-all flex items-center justify-center gap-3`}>
                             <Save size={24} />
-                            محفوظ کریں
+                            {isEditing ? 'اپ ڈیٹ کریں' : 'محفوظ کریں'}
                         </button>
                     </div>
                 </div>
@@ -170,20 +208,24 @@ const FarmDashboard: React.FC<FarmDashboardProps> = ({ onBack }) => {
                                     </div>
                                 </div>
 
-                                <div className="text-right flex flex-col items-end">
+                                <div className="text-right">
                                     <p className="font-bold text-slate-900">{formatUrduDate(rec.date)}</p>
-                                    <p className="text-xs text-slate-400 mt-0.5">{rec.date}</p>
-                                    <button
-                                        onClick={() => {
-                                            setDate(rec.date);
-                                            setMorning(rec.morningQuantity.toString());
-                                            setEvening(rec.eveningQuantity.toString());
-                                            window.scrollTo({ top: 0, behavior: 'smooth' });
-                                        }}
-                                        className="mt-2 text-xs font-bold text-blue-500 hover:text-blue-700 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1"
-                                    >
-                                        <Edit2 size={12} /> Edit
-                                    </button>
+                                    <div className="flex items-center justify-end gap-2 mt-1">
+                                        <p className="text-xs text-slate-400">{rec.date}</p>
+                                        <button
+                                            onClick={() => {
+                                                setDate(rec.date);
+                                                setMorning(rec.morningQuantity.toString());
+                                                setEvening(rec.eveningQuantity.toString());
+                                                setIsEditing(true);
+                                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                                            }}
+                                            className="p-1.5 bg-slate-100 text-slate-500 rounded-lg hover:bg-blue-100 hover:text-blue-600 transition-colors"
+                                            title="Edit Record"
+                                        >
+                                            <Edit2 size={14} />
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         ))
