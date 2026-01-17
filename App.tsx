@@ -267,25 +267,71 @@ const App: React.FC = () => {
           // Check for today's record to get manually set opening stock
           const todayRecord = farmRecs.find(r => r.date === dailyDate);
 
-          // 2. Previous Totals (History before selected date) - Calculated Fallback
-          // We only use this if manual stock is NOT set (or null)
-          const prevFarm = farmRecs
+          // 2. Anchor-Based Calculation Logic
+          // We need to find the latest "Anchor" - a day where openingStock was manually set.
+          // If found, we start calculation from there. If not, we start from the beginning.
+
+          /* 
+             Logic:
+             1. Filter farmRecs for dates strictly BEFORE dailyDate.
+             2. Sort descending by date.
+             3. Find first record with openingStock != null.
+          */
+
+          const sortedHistory = farmRecs
             .filter(r => r.date < dailyDate)
+            .sort((a, b) => b.date.localeCompare(a.date));
+
+          const anchorRecord = sortedHistory.find(r => r.openingStock !== null && r.openingStock !== undefined);
+
+          let baseStock = 0;
+          let calculatedFromDate = ''; // Exclusive start date for calculation loop (actually inclusive of next day)
+
+          if (anchorRecord) {
+            baseStock = anchorRecord.openingStock!;
+            calculatedFromDate = anchorRecord.date;
+          } else {
+            // No anchor found, start from beginning (baseStock = 0)
+            calculatedFromDate = ''; // effectively everything > ''
+          }
+
+          // Now calculate NET change from the Anchor Date (Exclusive) up to DailyDate (Exclusive)
+          // Range: (AnchorDate < date < DailyDate)
+          // But wait, if we have an anchor at date X with Opening Stock S, 
+          // the result at end of day X is: S + Farm(X) + Purchase(X) - Sale(X).
+          // So we must INCLUDE the Anchor Date's transactions in the net change, 
+          // OR simply start summing transactions where date >= AnchorDate AND date < DailyDate.
+
+          /*
+             Refined Logic:
+             Start Sum = BaseStock (This is the Opening Stock of Anchor Day)
+             Add Transactions for every day D where: AnchorDate <= D < DailyDate
+          */
+
+          const filterRange = (d: string) => {
+            if (calculatedFromDate) {
+              return d >= calculatedFromDate && d < dailyDate;
+            }
+            return d < dailyDate;
+          };
+
+          const rangeFarm = farmRecs
+            .filter(r => filterRange(r.date))
             .reduce((sum, r) => sum + r.totalQuantity, 0);
 
-          const prevPurchase = dashboardData.purchases.reduce((sum, c) => {
+          const rangePurchase = dashboardData.purchases.reduce((sum, c) => {
             return sum + c.records
-              .filter(r => r.date < dailyDate)
+              .filter(r => filterRange(r.date))
               .reduce((s, r) => s + r.totalQuantity, 0);
           }, 0);
 
-          const prevSale = dashboardData.sales.reduce((sum, c) => {
+          const rangeSale = dashboardData.sales.reduce((sum, c) => {
             return sum + c.records
-              .filter(r => r.date < dailyDate)
+              .filter(r => filterRange(r.date))
               .reduce((s, r) => s + r.totalQuantity, 0);
           }, 0);
 
-          const calculatedPrevStock = prevFarm + prevPurchase - prevSale;
+          const calculatedPrevStock = baseStock + rangeFarm + rangePurchase - rangeSale;
 
           // 3. Today's Stats
           const todayFarm = todayRecord?.totalQuantity || 0;
