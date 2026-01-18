@@ -52,7 +52,6 @@ export const api = {
         if (!user) return null;
         const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
         return data;
-        return data;
     },
 
     // Storage
@@ -293,5 +292,4 @@ export const api = {
         const { error } = await supabase.from('farm_records').delete().eq('id', id);
         if (error) throw error;
     }
-}
 };
