@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Contact, MilkRecord, ModuleType, Payment } from '../types';
 import { formatUrduDate, getMonthLabel, getEnglishMonthLabel } from '../utils';
-import { ChevronRight, Save, Edit2, X, Download, Milk, Loader2, DollarSign, Wallet, ArrowLeft, History, Plus, Trash2, FileText, ReceiptText, Lock } from 'lucide-react';
+import { ChevronRight, Save, Edit2, X, Download, Milk, Loader2, DollarSign, Wallet, ArrowLeft, History, Plus, Trash2, FileText, ReceiptText, Lock, Camera, Image as ImageIcon } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
@@ -38,7 +38,13 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentDescription, setPaymentDescription] = useState('');
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentDescription, setPaymentDescription] = useState('');
   const [activeTab, setActiveTab] = useState<'LEDGER' | 'PAYMENTS'>('LEDGER');
+  const [uploadingDate, setUploadingDate] = useState<string | null>(null);
+
+  // Hidden File Input Ref
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const isSale = moduleType === 'SALE';
   const colorClass = isSale ? 'text-emerald-600' : 'text-rose-600';
@@ -136,6 +142,57 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
         delete saveTimeoutsRef.current[dateStr];
       }
     }, 1000); // 1 second delay
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !uploadingDate) return;
+
+    try {
+      // Optimistic UI update could go here (e.g. showing a spinner on that row)
+      // For now, let's just upload
+      const url = await api.uploadImage(file);
+
+      // Update Record
+      const updatedRecords = [...buyer.records];
+      const index = updatedRecords.findIndex(r => r.date === uploadingDate);
+
+      if (index >= 0) {
+        updatedRecords[index] = { ...updatedRecords[index], imageUrl: url };
+
+        onUpdateBuyer({ ...buyer, records: updatedRecords });
+        // Save to DB
+        await api.addRecord(buyer.id, updatedRecords[index]);
+      } else {
+        // Create new record with 0 qty just for image? Or require value?
+        // Let's create a minimal record
+        const newRecord: MilkRecord = {
+          id: uuidv4(),
+          date: uploadingDate,
+          morningQuantity: 0,
+          eveningQuantity: 0,
+          totalQuantity: 0,
+          totalPrice: 0,
+          timestamp: Date.now(),
+          imageUrl: url,
+          pricePerLiter: buyer.pricePerLiter
+        };
+        updatedRecords.push(newRecord);
+        onUpdateBuyer({ ...buyer, records: updatedRecords });
+        await api.addRecord(buyer.id, newRecord);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("تصویر اپ لوڈ نہیں ہو سکی۔");
+    } finally {
+      setUploadingDate(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const triggerUpload = (dateStr: string) => {
+    setUploadingDate(dateStr);
+    fileInputRef.current?.click();
   };
 
   const handleSavePayment = async () => {
@@ -584,6 +641,13 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
 
   return (
     <div className="min-h-screen bg-slate-50/50 fade-in flex flex-col">
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleImageUpload}
+        className="hidden"
+        accept="image/*"
+      />
       {/* ... Header ... */}
       <header className="bg-white border-b border-slate-100 px-6 py-5 flex items-center justify-between sticky top-0 z-40 backdrop-blur-md shadow-sm">
         {/* ... (Header content skipped for brevity, matching existing) ... */}
@@ -708,8 +772,31 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
                             className={`w-16 p-3 text-center bg-slate-50 rounded-xl font-black text-lg text-slate-900 focus:bg-white focus:ring-4 ${ringClass}/10 outline-none border-2 border-transparent focus:border-emerald-500/20 transition-all disabled:opacity-50`}
                           />
                         </td>
-                        <td className={`p-4 text-center font-black text-2xl ${colorClass} rounded-l-2xl border-y border-l border-slate-50`}>
+                        <td className={`p-4 text-center font-black text-2xl ${colorClass} rounded-l-2xl border-y border-l border-slate-50 relative group/cell`}>
                           {record?.totalQuantity || '-'}
+
+                          {/* Photo Upload Trigger */}
+                          {!isPastMonth && (
+                            <button
+                              onClick={() => triggerUpload(dateStr)}
+                              className={`absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full shadow-sm transition-all ${record?.imageUrl ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400 opacity-0 group-hover:opacity-100 group-hover/cell:opacity-100'}`}
+                              title={record?.imageUrl ? "View/Change Photo" : "Upload Photo"}
+                            >
+                              {record?.imageUrl ? <ImageIcon size={14} /> : <Camera size={14} />}
+                            </button>
+                          )}
+
+                          {/* View Link if exists */}
+                          {record?.imageUrl && (
+                            <a
+                              href={record.imageUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="absolute -left-2 -top-2 bg-blue-600 text-white rounded-full p-1 shadow-md scale-0 group-hover:scale-100 transition-transform z-10"
+                            >
+                              <ImageIcon size={10} />
+                            </a>
+                          )}
                         </td>
                       </tr>
                     );

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FarmRecord } from '../types';
 import { api } from '../lib/api';
 import { formatUrduDate } from '../utils';
-import { Milk, Save, ArrowLeft, Calendar, Droplets, Edit2, X } from 'lucide-react';
+import { Milk, Save, ArrowLeft, Calendar, Droplets, Edit2, X, Trash2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 interface FarmDashboardProps {
@@ -224,6 +224,22 @@ const FarmDashboard: React.FC<FarmDashboardProps> = ({ onBack }) => {
                                             title="Edit Record"
                                         >
                                             <Edit2 size={14} />
+                                        </button>
+                                        <button
+                                            onClick={async () => {
+                                                if (window.confirm("کیا آپ واقعی یہ ریکارڈ حذف کرنا چاہتے ہیں؟")) {
+                                                    try {
+                                                        await api.deleteFarmRecord(rec.id);
+                                                        setRecords(records.filter(r => r.id !== rec.id));
+                                                    } catch (e) {
+                                                        alert("حذف نہیں ہو سکا۔");
+                                                    }
+                                                }
+                                            }}
+                                            className="p-1.5 bg-slate-100 text-slate-500 rounded-lg hover:bg-rose-100 hover:text-rose-600 transition-colors"
+                                            title="Delete Record"
+                                        >
+                                            <Trash2 size={14} />
                                         </button>
                                     </div>
                                 </div>

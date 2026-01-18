@@ -21,6 +21,7 @@ const mapRecord = (data: any): MilkRecord => ({
     totalQuantity: Number(data.total_quantity),
     totalPrice: Number(data.total_price),
     pricePerLiter: data.price_per_liter ? Number(data.price_per_liter) : undefined,
+    imageUrl: data.image_url,
     timestamp: new Date(data.created_at).getTime(),
 });
 
@@ -51,6 +52,23 @@ export const api = {
         if (!user) return null;
         const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
         return data;
+        return data;
+    },
+
+    // Storage
+    async uploadImage(file: File): Promise<string> {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Math.random()}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+            .from('receipts')
+            .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data } = supabase.storage.from('receipts').getPublicUrl(filePath);
+        return data.publicUrl;
     },
 
     // Contacts
@@ -165,6 +183,8 @@ export const api = {
                 total_quantity: record.totalQuantity,
                 total_price: record.totalPrice,
             };
+            if (record.imageUrl) updatePayload.image_url = record.imageUrl;
+
             // Only update price if it's explicitly provided in the record object
             if (record.pricePerLiter !== undefined) {
                 updatePayload.price_per_liter = record.pricePerLiter;
@@ -181,7 +201,8 @@ export const api = {
                 evening_quantity: record.eveningQuantity,
                 total_quantity: record.totalQuantity,
                 total_price: record.totalPrice,
-                price_per_liter: record.pricePerLiter // Save the snapshot
+                price_per_liter: record.pricePerLiter, // Save the snapshot
+                image_url: record.imageUrl
             });
             if (error) throw error;
         }
@@ -266,5 +287,11 @@ export const api = {
             const { error } = await supabase.from('farm_records').insert(payload);
             if (error) throw error;
         }
+    },
+
+    async deleteFarmRecord(id: string) {
+        const { error } = await supabase.from('farm_records').delete().eq('id', id);
+        if (error) throw error;
     }
+}
 };
