@@ -999,7 +999,7 @@ const App: React.FC = () => {
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <div>
                   <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">آج کا جائزہ</h2>
-                  <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Daily Stock Insight</p>
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">روزانہ اسٹاک کی تفصیل</p>
                 </div>
                 <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-200 w-full md:w-auto">
                   <Calendar size={18} className="text-slate-400 ml-2" />
@@ -1028,7 +1028,7 @@ const App: React.FC = () => {
                   </div>
 
                   <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">
-                    {dailyStats.openingStock !== undefined ? "Opening (Manual)" : "Opening (Calc)"}
+                    {dailyStats.openingStock !== undefined ? "ابتدائی (مینوئل)" : "ابتدائی (آٹو)"}
                   </p>
 
                   {isEditingStock ? (
@@ -1069,7 +1069,7 @@ const App: React.FC = () => {
                         {dailyStats.openingStock !== undefined ? dailyStats.openingStock : dailyStats.prevStock}
                       </p>
                       <p className="text-[10px] text-slate-300 font-bold">
-                        Click to Edit
+                        تبدیل کریں
                       </p>
                     </>
                   )}
@@ -1080,9 +1080,9 @@ const App: React.FC = () => {
                   <div className="bg-blue-100 p-2 rounded-full mb-2">
                     <Tractor size={18} className="text-blue-600" />
                   </div>
-                  <p className="text-[10px] text-blue-400 font-black uppercase tracking-widest mb-1">Farm</p>
+                  <p className="text-[10px] text-blue-400 font-black uppercase tracking-widest mb-1">فارم</p>
                   <p className="text-2xl md:text-3xl font-black text-blue-700">{dailyStats.farm}</p>
-                  <p className="text-[10px] text-blue-300 font-bold">Liters</p>
+                  <p className="text-[10px] text-blue-300 font-bold">لیٹر</p>
                 </div>
 
                 {/* Purchase */}
@@ -1092,18 +1092,18 @@ const App: React.FC = () => {
                   <div className="bg-rose-100 p-2 rounded-full mb-2">
                     <History size={18} className="text-rose-600" />
                   </div>
-                  <p className="text-[10px] text-rose-400 font-black uppercase tracking-widest mb-1">Purchase</p>
+                  <p className="text-[10px] text-rose-400 font-black uppercase tracking-widest mb-1">خریداری</p>
                   <p className="text-2xl md:text-3xl font-black text-rose-700">{dailyStats.purchase}</p>
-                  <p className="text-[10px] text-rose-300 font-bold">Liters</p>
+                  <p className="text-[10px] text-rose-300 font-bold">لیٹر</p>
                 </div>
 
                 {/* Total Available (Today) */}
                 {/* Total Available (Today) */}
                 <div className="p-5 bg-gradient-to-br from-slate-50 to-white rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-center relative overflow-hidden">
                   <div className="absolute top-0 left-0 w-full h-1 bg-slate-200"></div>
-                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Total Available</p>
+                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">کل دستیاب</p>
                   <p className="text-2xl md:text-3xl font-black text-slate-700">{totalAvailable}</p>
-                  <p className="text-[10px] text-slate-300 font-bold">(Farm+Pur)</p>
+                  <p className="text-[10px] text-slate-300 font-bold">(فارم + خریداری)</p>
                 </div>
 
                 {/* Sales */}
@@ -1112,9 +1112,9 @@ const App: React.FC = () => {
                   <div className="bg-emerald-100 p-2 rounded-full mb-2">
                     <ShoppingCart size={18} className="text-emerald-600" />
                   </div>
-                  <p className="text-[10px] text-emerald-400 font-black uppercase tracking-widest mb-1">Sold</p>
+                  <p className="text-[10px] text-emerald-400 font-black uppercase tracking-widest mb-1">فروخت</p>
                   <p className="text-2xl md:text-3xl font-black text-emerald-700">{dailyStats.sale}</p>
-                  <p className="text-[10px] text-emerald-300 font-bold">Liters</p>
+                  <p className="text-[10px] text-emerald-300 font-bold">لیٹر</p>
                 </div>
               </div>
 
@@ -1126,16 +1126,16 @@ const App: React.FC = () => {
                   </div>
                   <div>
                     <p className={`text-sm font-black ${netRemaining >= 0 ? 'text-emerald-800' : 'text-red-800'}`}>
-                      {netRemaining >= 0 ? "Stock Balanced" : "Stock Shortage!"}
+                      {netRemaining >= 0 ? "اسٹاک برابر" : "اسٹاک کم ہے!"}
                     </p>
-                    <p className="text-[10px] opacity-70 font-bold uppercase tracking-widest">Status</p>
+                    <p className="text-[10px] opacity-70 font-bold uppercase tracking-widest">اسٹیٹس</p>
                   </div>
                 </div>
                 <div className="text-right">
                   <p className={`text-2xl font-black ${netRemaining >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
                     {netRemaining}
                   </p>
-                  <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">Remaining / Carry Over</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">بقایا / اگلا دن</p>
                 </div>
               </div>
             </div>
