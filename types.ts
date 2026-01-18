@@ -26,6 +26,7 @@ export interface FarmRecord {
   eveningQuantity: number;
   totalQuantity: number;
   openingStock?: number | null; // Manual daily opening balance
+  imageUrl?: string;
   timestamp: number;
 }
 

@@ -42,6 +42,7 @@ const mapFarmRecord = (data: any): FarmRecord => ({
     eveningQuantity: Number(data.evening_quantity),
     totalQuantity: Number(data.total_quantity),
     openingStock: data.opening_stock ? Number(data.opening_stock) : 0,
+    imageUrl: data.image_url,
     timestamp: new Date(data.created_at).getTime(),
 });
 
@@ -268,6 +269,10 @@ export const api = {
             evening_quantity: record.eveningQuantity,
             total_quantity: record.totalQuantity
         };
+
+        if (record.imageUrl) {
+            payload.image_url = record.imageUrl;
+        }
 
         // Allow passing null to clear the manual override
         if (record.openingStock !== undefined) {

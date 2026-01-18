@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FarmRecord } from '../types';
 import { api } from '../lib/api';
 import { formatUrduDate } from '../utils';
-import { Milk, Save, ArrowLeft, Calendar, Droplets, Edit2, X, Trash2 } from 'lucide-react';
+import { Milk, Save, ArrowLeft, Calendar, Droplets, Edit2, X, Trash2, Camera, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 interface FarmDashboardProps {
@@ -18,6 +18,11 @@ const FarmDashboard: React.FC<FarmDashboardProps> = ({ onBack }) => {
     const [morning, setMorning] = useState('');
     const [evening, setEvening] = useState('');
     const [isEditing, setIsEditing] = useState(false);
+    const [imageUrl, setImageUrl] = useState<string | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
+
+    // File Input Ref
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         loadRecords();
@@ -36,6 +41,7 @@ const FarmDashboard: React.FC<FarmDashboardProps> = ({ onBack }) => {
                 if (todayRec) {
                     setMorning(todayRec.morningQuantity.toString());
                     setEvening(todayRec.eveningQuantity.toString());
+                    setImageUrl(todayRec.imageUrl || null);
                 }
             }
         } catch (e) {
@@ -60,6 +66,8 @@ const FarmDashboard: React.FC<FarmDashboardProps> = ({ onBack }) => {
             morningQuantity: m,
             eveningQuantity: e,
             totalQuantity: m + e,
+            totalQuantity: m + e,
+            imageUrl: imageUrl || undefined,
             timestamp: Date.now()
         };
 
@@ -85,6 +93,7 @@ const FarmDashboard: React.FC<FarmDashboardProps> = ({ onBack }) => {
                 setDate(new Date().toISOString().split('T')[0]);
                 setMorning('');
                 setEvening('');
+                setImageUrl(null);
             }
         } catch (e) {
             console.error(e);
@@ -98,7 +107,25 @@ const FarmDashboard: React.FC<FarmDashboardProps> = ({ onBack }) => {
         setDate(new Date().toISOString().split('T')[0]);
         setMorning('');
         setEvening('');
+        setImageUrl(null);
         loadRecords(); // Reload to ensure 'today' default logic runs
+    };
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            setIsUploading(true);
+            const url = await api.uploadImage(file);
+            setImageUrl(url);
+        } catch (err) {
+            console.error(err);
+            alert("تصویر اپ لوڈ نہیں ہو سکی۔");
+        } finally {
+            setIsUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
     };
 
     return (
@@ -167,6 +194,25 @@ const FarmDashboard: React.FC<FarmDashboardProps> = ({ onBack }) => {
                                 />
                             </div>
                         </div>
+
+                        {/* Image Upload Section */}
+                        <div className="md:col-span-2 flex items-center justify-between bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                            <div className="flex items-center gap-4">
+                                <div onClick={() => fileInputRef.current?.click()} className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm cursor-pointer hover:bg-slate-100 transition-colors border border-slate-200 text-slate-400">
+                                    {isUploading ? <Loader2 className="animate-spin" size={20} /> : (imageUrl ? <img src={imageUrl} className="w-full h-full object-cover rounded-xl" /> : <Camera size={20} />)}
+                                </div>
+                                <div>
+                                    <p className="font-bold text-slate-700 text-sm">تصویر (Optional)</p>
+                                    <p className="text-[10px] text-slate-400 font-bold max-w-[200px] truncate">{imageUrl ? "Image Attached" : "Tap camera to upload receipt"}</p>
+                                </div>
+                            </div>
+
+                            {imageUrl && (
+                                <button onClick={() => setImageUrl(null)} className="text-rose-500 bg-rose-50 p-2 rounded-lg hover:bg-rose-100 font-bold text-xs">Remove</button>
+                            )}
+
+                            <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
+                        </div>
                     </div>
 
                     <div className="mt-8 flex gap-3">
@@ -208,6 +254,18 @@ const FarmDashboard: React.FC<FarmDashboardProps> = ({ onBack }) => {
                                     </div>
                                 </div>
 
+                                {rec.imageUrl && (
+                                    <div className="mx-4 h-8 w-px bg-slate-100 md:block hidden"></div>
+                                )}
+
+                                {rec.imageUrl && (
+                                    <div className="hidden md:block">
+                                        <a href={rec.imageUrl} target="_blank" rel="noreferrer" className="text-blue-500 flex items-center gap-1 text-xs font-bold bg-blue-50 px-2 py-1 rounded-lg hover:bg-blue-100">
+                                            <ImageIcon size={12} /> View
+                                        </a>
+                                    </div>
+                                )}
+
                                 <div className="text-right">
                                     <p className="font-bold text-slate-900">{formatUrduDate(rec.date)}</p>
                                     <div className="flex items-center justify-end gap-2 mt-1">
@@ -217,6 +275,7 @@ const FarmDashboard: React.FC<FarmDashboardProps> = ({ onBack }) => {
                                                 setDate(rec.date);
                                                 setMorning(rec.morningQuantity.toString());
                                                 setEvening(rec.eveningQuantity.toString());
+                                                setImageUrl(rec.imageUrl || null);
                                                 setIsEditing(true);
                                                 window.scrollTo({ top: 0, behavior: 'smooth' });
                                             }}
@@ -248,8 +307,8 @@ const FarmDashboard: React.FC<FarmDashboardProps> = ({ onBack }) => {
                     )}
                 </div>
 
-            </div>
-        </div>
+            </div >
+        </div >
     );
 };
 
