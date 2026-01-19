@@ -142,6 +142,30 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
     }, 1000); // 1 second delay
   };
 
+  const handleDeleteImage = async (dateStr: string) => {
+    if (isPastMonth) return;
+    if (!window.confirm("کیا آپ واقعی یہ تصویر حذف کرنا چاہتے ہیں؟")) return;
+
+    const updatedRecords = [...buyer.records];
+    const index = updatedRecords.findIndex(r => r.date === dateStr);
+
+    if (index >= 0) {
+      const record = updatedRecords[index];
+      // Use cast to allow null if type is strict, though api.ts handles it.
+      const updatedRecord = { ...record, imageUrl: null as any };
+      updatedRecords[index] = updatedRecord;
+
+      onUpdateBuyer({ ...buyer, records: updatedRecords });
+
+      try {
+        await api.addRecord(buyer.id, updatedRecord);
+      } catch (e) {
+        console.error("Failed to delete image", e);
+        alert("تصویر حذف نہیں ہو سکی۔");
+      }
+    }
+  };
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !uploadingDate) return;
@@ -775,13 +799,24 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
 
                           {/* Photo Upload Trigger */}
                           {!isPastMonth && (
-                            <button
-                              onClick={() => triggerUpload(dateStr)}
-                              className={`absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full shadow-sm transition-all ${record?.imageUrl ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400 opacity-0 group-hover:opacity-100 group-hover/cell:opacity-100'}`}
-                              title={record?.imageUrl ? "View/Change Photo" : "Upload Photo"}
-                            >
-                              {record?.imageUrl ? <ImageIcon size={14} /> : <Camera size={14} />}
-                            </button>
+                            <div className="absolute left-1 top-1/2 -translate-y-1/2 flex flex-col gap-1 z-20">
+                              <button
+                                onClick={() => triggerUpload(dateStr)}
+                                className={`p-1.5 rounded-full shadow-sm transition-all ${record?.imageUrl ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400 opacity-100 md:opacity-0 md:group-hover/cell:opacity-100'}`}
+                                title={record?.imageUrl ? "View/Change Photo" : "Upload Photo"}
+                              >
+                                <Camera size={14} />
+                              </button>
+                              {record?.imageUrl && (
+                                <button
+                                  onClick={() => handleDeleteImage(dateStr)}
+                                  className="p-1.5 bg-rose-100 text-rose-600 rounded-full shadow-sm hover:bg-rose-200"
+                                  title="Delete Photo"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              )}
+                            </div>
                           )}
 
                           {/* View Link if exists */}
@@ -790,7 +825,7 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
                               href={record.imageUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="absolute -left-2 -top-2 bg-blue-600 text-white rounded-full p-1 shadow-md scale-0 group-hover:scale-100 transition-transform z-10"
+                              className="absolute -left-2 -top-2 bg-blue-600 text-white rounded-full p-1 shadow-md z-10 transition-transform hover:scale-110"
                             >
                               <ImageIcon size={10} />
                             </a>

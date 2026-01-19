@@ -7,7 +7,7 @@ export interface MilkRecord {
   totalQuantity: number; // Sum of morning + evening
   totalPrice: number;
   pricePerLiter?: number; // Snapshot of price at time of record
-  imageUrl?: string; // Optional URL for uploaded receipt/photo
+  imageUrl?: string | null; // Optional URL for uploaded receipt/photo
   timestamp: number;
 }
 
@@ -26,7 +26,7 @@ export interface FarmRecord {
   eveningQuantity: number;
   totalQuantity: number;
   openingStock?: number | null; // Manual daily opening balance
-  imageUrl?: string;
+  imageUrl?: string | null;
   timestamp: number;
 }
 

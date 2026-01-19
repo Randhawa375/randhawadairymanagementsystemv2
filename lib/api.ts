@@ -183,7 +183,11 @@ export const api = {
                 total_quantity: record.totalQuantity,
                 total_price: record.totalPrice,
             };
-            if (record.imageUrl) updatePayload.image_url = record.imageUrl;
+
+            // Allow updating or clearing the image
+            if (record.imageUrl !== undefined) {
+                updatePayload.image_url = record.imageUrl;
+            }
 
             // Only update price if it's explicitly provided in the record object
             if (record.pricePerLiter !== undefined) {
