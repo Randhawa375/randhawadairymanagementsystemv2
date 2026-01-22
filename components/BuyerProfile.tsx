@@ -684,8 +684,22 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
             </p>
           </div>
         </div>
-        <div className={`w-12 h-12 ${bgSoftClass} rounded-2xl flex items-center justify-center shadow-inner border border-white/50`}>
-          {isSale ? <DollarSign className={colorClass} size={26} /> : <Wallet className={colorClass} size={26} />}
+        <div className="flex items-center gap-2">
+          {!isPastMonth && (
+            <button
+              onClick={() => {
+                const today = new Date();
+                const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                triggerUpload(dateStr);
+              }}
+              className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm border border-slate-100 active:scale-95 transition-all ${isSale ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}
+            >
+              <Camera size={24} />
+            </button>
+          )}
+          <div className={`w-12 h-12 ${bgSoftClass} rounded-2xl flex items-center justify-center shadow-inner border border-white/50`}>
+            {isSale ? <DollarSign className={colorClass} size={26} /> : <Wallet className={colorClass} size={26} />}
+          </div>
         </div>
       </header>
 
@@ -797,27 +811,7 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
                         <td className={`p-4 text-center font-black text-2xl ${colorClass} rounded-l-2xl border-y border-l border-slate-50 relative group/cell`}>
                           {record?.totalQuantity || '-'}
 
-                          {/* Photo Upload Trigger */}
-                          {!isPastMonth && (
-                            <div className="absolute left-1 top-1/2 -translate-y-1/2 flex flex-col gap-1 z-20">
-                              <button
-                                onClick={() => triggerUpload(dateStr)}
-                                className={`p-1.5 rounded-full shadow-sm transition-all ${record?.imageUrl ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400 opacity-100 md:opacity-0 md:group-hover/cell:opacity-100'}`}
-                                title={record?.imageUrl ? "View/Change Photo" : "Upload Photo"}
-                              >
-                                <Camera size={14} />
-                              </button>
-                              {record?.imageUrl && (
-                                <button
-                                  onClick={() => handleDeleteImage(dateStr)}
-                                  className="p-1.5 bg-rose-100 text-rose-600 rounded-full shadow-sm hover:bg-rose-200"
-                                  title="Delete Photo"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              )}
-                            </div>
-                          )}
+
 
                           {/* View Link if exists */}
                           {record?.imageUrl && (
