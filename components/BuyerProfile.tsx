@@ -40,6 +40,7 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
   const [paymentDescription, setPaymentDescription] = useState('');
   const [activeTab, setActiveTab] = useState<'LEDGER' | 'PAYMENTS'>('LEDGER');
   const [uploadingDate, setUploadingDate] = useState<string | null>(null);
+  const [viewingImage, setViewingImage] = useState<{ url: string, date: string } | null>(null);
 
   // Hidden File Input Ref
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -479,7 +480,7 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
       // Wait a moment for rendering
       await new Promise(resolve => setTimeout(resolve, 500)); // Increase wait time
 
-      // Capture
+      // Capture Ledger
       const canvas = await html2canvas(printContainer, {
         scale: 2, // High resolution
         useCORS: true,
@@ -489,7 +490,7 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
         height: printContainer.scrollHeight // EXPLICIT HEIGHT to prevent extra whitespace
       });
 
-      cleanup();
+      cleanup(); // Cleanup Ledger Container
 
       // Generate PDF (Multi-Page Support)
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
@@ -520,6 +521,85 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
         pdf.addImage(imgData, 'JPEG', 0, -(pageHeight * pageCount), pageWidth, scaledHeight);
         heightLeft -= pageHeight;
         pageCount++;
+      }
+
+      // --------------------------------------------------------------------------
+      // APPEND IMAGES
+      // --------------------------------------------------------------------------
+      const recordsWithImages = buyer.records
+        .filter(r => r.imageUrl && r.date.startsWith(currentMonthPrefix))
+        .sort((a, b) => a.date.localeCompare(b.date)); // Sort by date
+
+      if (recordsWithImages.length > 0) {
+        pdf.addPage();
+        pdf.setFontSize(20);
+        pdf.setTextColor(40, 40, 40);
+        pdf.text("Attached Receipts / Images", pageWidth / 2, 20, { align: 'center' });
+
+        // We will try to stack 2 images per page or 1 large one.
+        // Simplified approach: 1 or 2 images per page depending on aspect ratio?
+        // Let's just put max 2 per page to be safe.
+
+        let yOffset = 30;
+        let imagesOnPage = 0;
+
+        for (const record of recordsWithImages) {
+          if (!record.imageUrl) continue;
+
+          if (imagesOnPage >= 2) {
+            pdf.addPage();
+            yOffset = 20;
+            imagesOnPage = 0;
+          }
+
+          try {
+            // Fetch image as base64 (needed for jsPDF addImage to work reliably across protocols)
+            // However, since we used CORS for html2canvas, we might be lucky. 
+            // But for addImage with URL, it's safer to fetch blob or base64.
+            // Simplest way: create an Image element, wait load, draw to canvas, get base64.
+            // But since we are inside an async function, we can do it.
+
+            const imgBlob = await fetch(record.imageUrl).then(res => res.blob());
+            const base64 = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.readAsDataURL(imgBlob);
+            });
+
+            // Get dimensions
+            const imgProps = pdf.getImageProperties(base64);
+            const availableWidth = pageWidth - 40; // 20mm margin
+            const availableHeight = (pageHeight - 60) / 2; // Split page height for 2 images
+
+            // Scale to fit
+            const widthRatio = availableWidth / imgProps.width;
+            const heightRatio = availableHeight / imgProps.height;
+            const scale = Math.min(widthRatio, heightRatio, 1); // Don't upscale
+
+            const finalWidth = imgProps.width * scale;
+            const finalHeight = imgProps.height * scale;
+
+            // Center horizontally
+            const xPos = (pageWidth - finalWidth) / 2;
+
+            pdf.setFontSize(10);
+            pdf.setTextColor(100);
+            pdf.text(`Date: ${record.date}`, xPos, yOffset - 2);
+
+            pdf.addImage(base64, 'JPEG', xPos, yOffset, finalWidth, finalHeight);
+
+            yOffset += availableHeight + 15;
+            imagesOnPage++;
+
+          } catch (err) {
+            console.error("Failed to add PDF image for", record.date, err);
+            // Verify if we should show a placeholder or skip
+            pdf.setFontSize(10);
+            pdf.setTextColor(200, 50, 50);
+            pdf.text(`[Image Load Failed: ${record.date}]`, 20, yOffset);
+            yOffset += 20;
+          }
+        }
       }
 
       pdf.save(`${buyer.name}_Ledger_${engMonth}.pdf`);
@@ -815,14 +895,12 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
 
                           {/* View Link if exists */}
                           {record?.imageUrl && (
-                            <a
-                              href={record.imageUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="absolute -left-2 -top-2 bg-blue-600 text-white rounded-full p-1 shadow-md z-10 transition-transform hover:scale-110"
+                            <button
+                              onClick={() => setViewingImage({ url: record.imageUrl!, date: dateStr })}
+                              className="absolute -left-3 -top-3 bg-blue-600 text-white rounded-full p-1.5 shadow-md z-10 transition-transform hover:scale-110 active:scale-95"
                             >
-                              <ImageIcon size={10} />
-                            </a>
+                              <ImageIcon size={14} />
+                            </button>
                           )}
                         </td>
                       </tr>
@@ -975,6 +1053,31 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
                 کینسل
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image View Modal */}
+      {viewingImage && (
+        <div
+          className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4 fade-in"
+          onClick={() => setViewingImage(null)}
+        >
+          <div className="relative max-w-full max-h-full" onClick={e => e.stopPropagation()}>
+            <button
+              onClick={() => setViewingImage(null)}
+              className="absolute -top-12 right-0 md:-right-12 text-white/50 hover:text-white transition-colors"
+            >
+              <X size={32} />
+            </button>
+            <img
+              src={viewingImage.url}
+              alt="Receipt"
+              className="max-w-full max-h-[85vh] rounded-lg shadow-2xl"
+            />
+            <p className="text-center text-white/80 font-mono mt-4 text-lg font-bold">
+              {formatUrduDate(viewingImage.date)}
+            </p>
           </div>
         </div>
       )}
