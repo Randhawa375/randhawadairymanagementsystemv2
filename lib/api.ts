@@ -22,6 +22,7 @@ const mapRecord = (data: any): MilkRecord => ({
     totalPrice: Number(data.total_price),
     pricePerLiter: data.price_per_liter ? Number(data.price_per_liter) : undefined,
     imageUrl: data.image_url,
+    images: data.images || (data.image_url ? [data.image_url] : []),
     timestamp: new Date(data.created_at).getTime(),
 });
 
@@ -43,6 +44,7 @@ const mapFarmRecord = (data: any): FarmRecord => ({
     totalQuantity: Number(data.total_quantity),
     openingStock: data.opening_stock ? Number(data.opening_stock) : 0,
     imageUrl: data.image_url,
+    images: data.images || (data.image_url ? [data.image_url] : []),
     timestamp: new Date(data.created_at).getTime(),
 });
 
@@ -188,6 +190,15 @@ export const api = {
             if (record.imageUrl !== undefined) {
                 updatePayload.image_url = record.imageUrl;
             }
+            if (record.images !== undefined) {
+                updatePayload.images = record.images;
+                // Sync image_url to first image for backward compat?
+                if (record.images && record.images.length > 0) {
+                    updatePayload.image_url = record.images[0];
+                } else if (record.images && record.images.length === 0) {
+                    updatePayload.image_url = null;
+                }
+            }
 
             // Only update price if it's explicitly provided in the record object
             if (record.pricePerLiter !== undefined) {
@@ -206,7 +217,8 @@ export const api = {
                 total_quantity: record.totalQuantity,
                 total_price: record.totalPrice,
                 price_per_liter: record.pricePerLiter, // Save the snapshot
-                image_url: record.imageUrl
+                image_url: record.imageUrl,
+                images: record.images
             });
             if (error) throw error;
         }
@@ -276,6 +288,15 @@ export const api = {
 
         if (record.imageUrl) {
             payload.image_url = record.imageUrl;
+        }
+        if (record.images !== undefined) {
+            payload.images = record.images;
+            // Sync image_url
+            if (record.images && record.images.length > 0) {
+                payload.image_url = record.images[0];
+            } else if (record.images && record.images.length === 0) {
+                payload.image_url = null;
+            }
         }
 
         // Allow passing null to clear the manual override

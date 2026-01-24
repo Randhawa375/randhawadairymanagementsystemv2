@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Contact, MilkRecord, ModuleType, Payment } from '../types';
 import { formatUrduDate, getMonthLabel, getEnglishMonthLabel } from '../utils';
-import { ChevronRight, Save, Edit2, X, Download, Milk, Loader2, DollarSign, Wallet, ArrowLeft, History, Plus, Trash2, FileText, ReceiptText, Lock, Camera, Image as ImageIcon } from 'lucide-react';
+import { ChevronRight, Save, Edit2, X, Download, Milk, Loader2, DollarSign, Wallet, ArrowLeft, History, Plus, Trash2, FileText, ReceiptText, Lock, Camera, Image as ImageIcon, Images } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
@@ -40,7 +40,7 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
   const [paymentDescription, setPaymentDescription] = useState('');
   const [activeTab, setActiveTab] = useState<'LEDGER' | 'PAYMENTS'>('LEDGER');
   const [uploadingDate, setUploadingDate] = useState<string | null>(null);
-  const [viewingImage, setViewingImage] = useState<{ url: string, date: string } | null>(null);
+  const [viewingImages, setViewingImages] = useState<{ date: string, urls: string[] } | null>(null);
 
   // Hidden File Input Ref
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -84,15 +84,12 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
 
     let newRecord: MilkRecord;
 
+    const effectiveRate = buyer.pricePerLiter;
+
     if (index >= 0) {
       const rec = updatedRecords[index];
       const m = field === 'morning' ? val : rec.morningQuantity;
       const e = field === 'evening' ? val : rec.eveningQuantity;
-
-      // Enforce Current Global Rate Logic (as requested by User)
-      // Even if a record has a stored price, if we are editing it now, we should re-apply the current contact rate.
-      // This is consistent with the "Global Rate Update" philosophy implemented in handleSaveRate.
-      const effectiveRate = buyer.pricePerLiter;
 
       newRecord = {
         ...rec,
@@ -107,43 +104,38 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
       const m = field === 'morning' ? val : 0;
       const e = field === 'evening' ? val : 0;
       newRecord = {
-        id: uuidv4(), // Client generated ID, acceptable for upsert if consistent
+        id: uuidv4(),
         date: dateStr,
         morningQuantity: m,
         eveningQuantity: e,
         totalQuantity: m + e,
         totalPrice: Math.round((m + e) * buyer.pricePerLiter),
-        pricePerLiter: buyer.pricePerLiter, // Snapshot current rate
-        timestamp: Date.now()
+        pricePerLiter: buyer.pricePerLiter,
+        timestamp: Date.now(),
+        images: []
       };
       updatedRecords.push(newRecord);
     }
 
-    // Optimistic Update
     onUpdateBuyer({ ...buyer, records: updatedRecords });
 
     // API Call (Debounced)
-    // Clear existing timeout for this specific date
     if (saveTimeoutsRef.current[dateStr]) {
       clearTimeout(saveTimeoutsRef.current[dateStr]);
     }
 
-    // Set new timeout
     saveTimeoutsRef.current[dateStr] = setTimeout(async () => {
       try {
         await api.addRecord(buyer.id, newRecord);
-        // Optional: Could update state again with server response to ensure sync, 
-        // but for now optimistic is fine as long as errors are handled.
       } catch (e) {
         console.error("Failed to save record", e);
-        // Revert logic could be added here if needed
       } finally {
         delete saveTimeoutsRef.current[dateStr];
       }
-    }, 1000); // 1 second delay
+    }, 1000);
   };
 
-  const handleDeleteImage = async (dateStr: string) => {
+  const handleDeleteImage = async (dateStr: string, imageUrl: string) => {
     if (isPastMonth) return;
     if (!window.confirm("کیا آپ واقعی یہ تصویر حذف کرنا چاہتے ہیں؟")) return;
 
@@ -152,11 +144,23 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
 
     if (index >= 0) {
       const record = updatedRecords[index];
-      // Use cast to allow null if type is strict, though api.ts handles it.
-      const updatedRecord = { ...record, imageUrl: null as any };
+      // Filter out the deleted image
+      const newImages = (record.images || []).filter(img => img !== imageUrl);
+
+      // Update logic
+      const updatedRecord = {
+        ...record,
+        images: newImages,
+        imageUrl: newImages.length > 0 ? newImages[0] : null // Sync backward compat
+      };
       updatedRecords[index] = updatedRecord;
 
       onUpdateBuyer({ ...buyer, records: updatedRecords });
+
+      // Sync Viewing State if Open
+      if (viewingImages && viewingImages.date === dateStr) {
+        setViewingImages({ ...viewingImages, urls: newImages });
+      }
 
       try {
         await api.addRecord(buyer.id, updatedRecord);
@@ -172,8 +176,6 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
     if (!file || !uploadingDate) return;
 
     try {
-      // Optimistic UI update could go here (e.g. showing a spinner on that row)
-      // For now, let's just upload
       const url = await api.uploadImage(file);
 
       // Update Record
@@ -181,14 +183,25 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
       const index = updatedRecords.findIndex(r => r.date === uploadingDate);
 
       if (index >= 0) {
-        updatedRecords[index] = { ...updatedRecords[index], imageUrl: url };
+        const currentImages = updatedRecords[index].images || (updatedRecords[index].imageUrl ? [updatedRecords[index].imageUrl!] : []);
+        const newImages = [...currentImages, url];
+
+        updatedRecords[index] = {
+          ...updatedRecords[index],
+          images: newImages,
+          imageUrl: newImages[0] // Sync backward compat
+        };
 
         onUpdateBuyer({ ...buyer, records: updatedRecords });
+
+        // Update Viewing State if open
+        if (viewingImages && viewingImages.date === uploadingDate) {
+          setViewingImages({ ...viewingImages, urls: newImages });
+        }
+
         // Save to DB
         await api.addRecord(buyer.id, updatedRecords[index]);
       } else {
-        // Create new record with 0 qty just for image? Or require value?
-        // Let's create a minimal record
         const newRecord: MilkRecord = {
           id: uuidv4(),
           date: uploadingDate,
@@ -197,7 +210,8 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
           totalQuantity: 0,
           totalPrice: 0,
           timestamp: Date.now(),
-          imageUrl: url,
+          images: [url],
+          imageUrl: url, // Sync backward compat
           pricePerLiter: buyer.pricePerLiter
         };
         updatedRecords.push(newRecord);
@@ -208,7 +222,6 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
       console.error(err);
       alert("تصویر اپ لوڈ نہیں ہو سکی۔");
     } finally {
-      setUploadingDate(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
@@ -216,6 +229,26 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
   const triggerUpload = (dateStr: string) => {
     setUploadingDate(dateStr);
     fileInputRef.current?.click();
+  };
+
+  const openGallery = (dateStr: string) => {
+    const record = buyer.records.find(r => r.date === dateStr);
+    const images = record?.images || (record?.imageUrl ? [record.imageUrl] : []);
+    setViewingImages({ date: dateStr, urls: images });
+  };
+
+  const handleCameraClick = () => {
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+    const record = buyer.records.find(r => r.date === dateStr);
+    const hasImages = (record?.images?.length || 0) > 0 || !!record?.imageUrl;
+
+    if (hasImages) {
+      openGallery(dateStr);
+    } else {
+      triggerUpload(dateStr);
+    }
   };
 
   const handleSavePayment = async () => {
@@ -767,11 +800,7 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
         <div className="flex items-center gap-2">
           {!isPastMonth && (
             <button
-              onClick={() => {
-                const today = new Date();
-                const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-                triggerUpload(dateStr);
-              }}
+              onClick={handleCameraClick}
               className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm border border-slate-100 active:scale-95 transition-all ${isSale ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}
             >
               <Camera size={24} />
@@ -891,15 +920,17 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
                         <td className={`p-4 text-center font-black text-2xl ${colorClass} rounded-l-2xl border-y border-l border-slate-50 relative group/cell`}>
                           {record?.totalQuantity || '-'}
 
-
-
                           {/* View Link if exists */}
-                          {record?.imageUrl && (
+                          {((record?.images?.length || 0) > 0 || record?.imageUrl) && (
                             <button
-                              onClick={() => setViewingImage({ url: record.imageUrl!, date: dateStr })}
-                              className="absolute -left-3 -top-3 bg-blue-600 text-white rounded-full p-1.5 shadow-md z-10 transition-transform hover:scale-110 active:scale-95"
+                              onClick={() => openGallery(dateStr)}
+                              className="absolute -left-3 -top-3 bg-blue-600 text-white rounded-full p-1.5 shadow-md z-10 transition-transform hover:scale-110 active:scale-95 flex items-center justify-center min-w-[28px] min-h-[28px]"
                             >
-                              <ImageIcon size={14} />
+                              {((record?.images?.length || 0) + (record?.imageUrl && !record?.images?.length ? 1 : 0)) > 1 ? (
+                                <span className="text-[10px] font-black">{(record?.images?.length || 0) + (record?.imageUrl && !record?.images?.length ? 1 : 0)}</span>
+                              ) : (
+                                <ImageIcon size={14} />
+                              )}
                             </button>
                           )}
                         </td>
@@ -1057,41 +1088,63 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
         </div>
       )}
 
-      {/* Image View Modal */}
-      {viewingImage && (
+      {/* Gallery View Modal */}
+      {viewingImages && (
         <div
-          className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4 fade-in"
-          onClick={() => setViewingImage(null)}
+          className="fixed inset-0 bg-black/95 z-[100] flex flex-col p-4 fade-in items-center justify-center"
+          onClick={() => setViewingImages(null)}
         >
-          <div className="relative max-w-full max-h-full" onClick={e => e.stopPropagation()}>
-            <button
-              onClick={() => setViewingImage(null)}
-              className="absolute -top-12 right-0 md:-right-12 text-white/50 hover:text-white transition-colors"
-            >
-              <X size={32} />
-            </button>
-            {!isPastMonth && (
-              <button
-                onClick={() => {
-                  if (viewingImage) {
-                    handleDeleteImage(viewingImage.date);
-                    setViewingImage(null);
-                  }
-                }}
-                className="absolute -top-12 left-0 md:-left-12 text-rose-400 hover:text-rose-500 transition-colors bg-white/10 p-2 rounded-full backdrop-blur-sm"
-                title="Delete Image"
-              >
-                <Trash2 size={24} />
-              </button>
-            )}
-            <img
-              src={viewingImage.url}
-              alt="Receipt"
-              className="max-w-full max-h-[85vh] rounded-lg shadow-2xl"
-            />
-            <p className="text-center text-white/80 font-mono mt-4 text-lg font-bold">
-              {formatUrduDate(viewingImage.date)}
-            </p>
+          <button
+            onClick={() => setViewingImages(null)}
+            className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors bg-white/10 p-3 rounded-full"
+          >
+            <X size={28} />
+          </button>
+
+          <div className="w-full max-w-4xl p-4 overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6 text-white px-2">
+              <h3 className="text-xl font-bold font-mono">{formatUrduDate(viewingImages.date)}</h3>
+              {!isPastMonth && (
+                <button
+                  onClick={() => triggerUpload(viewingImages.date)}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-black flex items-center gap-2 transition-all"
+                >
+                  <Plus size={18} /> اور تصویر
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {viewingImages.urls.map((url, idx) => (
+                <div key={idx} className="relative group rounded-2xl overflow-hidden border-2 border-white/10">
+                  <img src={url} alt={`Receipt ${idx + 1}`} className="w-full h-auto object-cover" />
+                  {!isPastMonth && (
+                    <button
+                      onClick={() => handleDeleteImage(viewingImages.date, url)}
+                      className="absolute top-3 right-3 bg-rose-600 text-white p-2 rounded-xl shadow-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-rose-700"
+                    >
+                      <Trash2 size={20} />
+                    </button>
+                  )}
+                  <div className="absolute bottom-2 left-3 bg-black/50 text-white text-[10px] px-2 py-1 rounded-md backdrop-blur-sm">
+                    Image {idx + 1}
+                  </div>
+                </div>
+              ))}
+
+              {/* Add Button Tile */}
+              {!isPastMonth && (
+                <button
+                  onClick={() => triggerUpload(viewingImages.date)}
+                  className="aspect-square rounded-2xl border-2 border-dashed border-white/20 hover:border-emerald-500/50 hover:bg-emerald-500/10 transition-all flex flex-col items-center justify-center gap-2 group"
+                >
+                  <div className="p-4 bg-white/5 rounded-full group-hover:bg-emerald-500 group-hover:text-white transition-colors text-white/50">
+                    <Plus size={32} />
+                  </div>
+                  <span className="text-white/50 text-xs font-black uppercase tracking-widest group-hover:text-emerald-400">Add New</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
