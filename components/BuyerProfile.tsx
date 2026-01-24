@@ -1070,6 +1070,20 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
             >
               <X size={32} />
             </button>
+            {!isPastMonth && (
+              <button
+                onClick={() => {
+                  if (viewingImage) {
+                    handleDeleteImage(viewingImage.date);
+                    setViewingImage(null);
+                  }
+                }}
+                className="absolute -top-12 left-0 md:-left-12 text-rose-400 hover:text-rose-500 transition-colors bg-white/10 p-2 rounded-full backdrop-blur-sm"
+                title="Delete Image"
+              >
+                <Trash2 size={24} />
+              </button>
+            )}
             <img
               src={viewingImage.url}
               alt="Receipt"
