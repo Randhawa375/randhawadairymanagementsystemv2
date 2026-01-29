@@ -454,7 +454,7 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
       // Each row is approx 10-12mm. So ~15-18 rows per page safely.
       // Let's go with 16 rows per page to be safe.
 
-      const ITEMS_PER_PAGE = 18;
+      const ITEMS_PER_PAGE = 22;
 
       // Combine Data for Pagination (Just to count total pages effectively)
       // Actually, we have two tables. We should print Table 1, then Table 2.
@@ -493,7 +493,7 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
       let currentCount = 0;
 
       for (const item of printQueue) {
-        const itemWeight = item.type === 'SUMMARY' ? 6 : (item.type === 'PAYMENT_HEADER' ? 2 : 1);
+        const itemWeight = item.type === 'SUMMARY' ? 5 : (item.type === 'PAYMENT_HEADER' ? 2 : 1);
 
         if (currentCount + itemWeight > ITEMS_PER_PAGE) {
           batches.push(currentBatch);
@@ -619,28 +619,33 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
             if (inMilkTable) { batchHTML += closeTable(); inMilkTable = false; }
             if (inPaymentTable) { batchHTML += closeTable(); inPaymentTable = false; }
 
+            // Colorful Summary Box
+            const bgClass = isSale ? 'bg-emerald-50' : 'bg-rose-50';
+            const borderClass = isSale ? 'border-emerald-200' : 'border-rose-200';
+            const textClass = isSale ? 'text-emerald-800' : 'text-rose-800';
+
             batchHTML += `
                    <div class="flex justify-end mt-6">
-                    <div class="w-64 bg-gray-50 p-4 rounded-xl border border-gray-200 text-sm">
-                       <div class="flex justify-between mb-2 pb-2 border-b border-gray-200">
-                        <span class="text-gray-500 font-bold">سابقہ بیلنس</span>
-                        <span class="font-bold text-gray-700">${previousBalance.toLocaleString()}</span>
+                    <div class="w-64 ${bgClass} p-4 rounded-xl border-2 ${borderClass} text-sm shadow-sm break-inside-avoid">
+                       <div class="flex justify-between mb-2 pb-2 border-b ${isSale ? 'border-emerald-200/50' : 'border-rose-200/50'}">
+                        <span class="${isSale ? 'text-emerald-600' : 'text-rose-600'} font-bold">سابقہ بیلنس</span>
+                        <span class="font-bold ${textClass}">${previousBalance.toLocaleString()}</span>
                       </div>
                       <div class="flex justify-between mb-1">
-                        <span class="text-gray-500 font-bold">کل دودھ</span>
-                        <span class="font-black">${monthMilk} لیٹر</span>
+                        <span class="${isSale ? 'text-emerald-600' : 'text-rose-600'} font-bold">کل دودھ</span>
+                        <span class="font-black ${textClass}">${monthMilk} لیٹر</span>
                       </div>
                       <div class="flex justify-between mb-1">
-                        <span class="text-gray-500 font-bold">کل بل</span>
-                        <span class="font-black">${monthBill.toLocaleString()}</span>
+                        <span class="${isSale ? 'text-emerald-600' : 'text-rose-600'} font-bold">کل بل</span>
+                        <span class="font-black ${textClass}">${monthBill.toLocaleString()}</span>
                       </div>
                       <div class="flex justify-between mb-1">
-                        <span class="text-gray-500 font-bold">وصولی</span>
+                        <span class="${isSale ? 'text-emerald-600' : 'text-rose-600'} font-bold">وصولی</span>
                         <span class="font-bold text-green-600">${monthPaid.toLocaleString()}</span>
                       </div>
-                      <div class="flex justify-between text-base pt-2 border-t border-gray-200 mt-2">
-                        <span class="font-black text-gray-800">بقایا جات</span>
-                        <span class="font-black text-${totalBalance > 0 ? (isSale ? 'emerald' : 'rose') : 'blue'}-600">${totalBalance.toLocaleString()}</span>
+                      <div class="flex justify-between text-base pt-2 border-t ${isSale ? 'border-emerald-200' : 'border-rose-200'} mt-2">
+                        <span class="font-black ${textClass}">بقایا جات</span>
+                        <span class="font-black text-${totalBalance > 0 ? (isSale ? 'emerald' : 'rose') : 'blue'}-700 text-lg">${totalBalance.toLocaleString()}</span>
                       </div>
                     </div>
                   </div>
