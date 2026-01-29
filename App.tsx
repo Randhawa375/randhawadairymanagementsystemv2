@@ -1084,11 +1084,9 @@ const App: React.FC = () => {
                   <p className="text-[10px] text-blue-400 font-black uppercase tracking-widest mb-1">فارم</p>
                   <p className="text-2xl md:text-3xl font-black text-blue-700">{dailyStats.farm}</p>
                   <p className="text-[10px] text-blue-300 font-bold">لیٹر</p>
-                  <p className="text-[10px] text-blue-300 font-bold">لیٹر</p>
                 </div>
 
                 {/* Purchase */}
-                {/* Purchase is clickable */}
                 <div
                   onClick={() => setDailyDetailMode('PURCHASE')}
                   className="p-5 bg-gradient-to-br from-rose-50 to-white rounded-2xl border border-rose-100 shadow-sm flex flex-col items-center justify-center cursor-pointer hover:shadow-md transition-all active:scale-95"
@@ -1102,25 +1100,24 @@ const App: React.FC = () => {
                 </div>
 
                 {/* Total Available (Today) */}
-                {/* Total Available (Today) */}
                 <div className="p-5 bg-gradient-to-br from-slate-50 to-white rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-center relative overflow-hidden">
                   <div className="absolute top-0 left-0 w-full h-1 bg-slate-200"></div>
                   <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">کل دستیاب</p>
                   <p className="text-2xl md:text-3xl font-black text-slate-700">{totalAvailable}</p>
                   <p className="text-[10px] text-slate-300 font-bold">(فارم + خریداری)</p>
-                  {/* Sale box is clickable */}
-                  {/* Sales */}
-                  <div
-                    onClick={() => setDailyDetailMode('SALE')}
-                    className="p-5 bg-gradient-to-br from-emerald-50 to-white rounded-2xl border border-emerald-100 shadow-sm flex flex-col items-center justify-center relative cursor-pointer hover:shadow-md transition-all active:scale-95"
-                  >
-                    <div className="bg-emerald-100 p-2 rounded-full mb-2">
-                      <ShoppingCart size={18} className="text-emerald-600" />
-                    </div>
-                    <p className="text-[10px] text-emerald-400 font-black uppercase tracking-widest mb-1">فروخت</p>
-                    <p className="text-2xl md:text-3xl font-black text-emerald-700">{dailyStats.sale}</p>
-                    <p className="text-[10px] text-emerald-300 font-bold">لیٹر</p>
+                </div>
+
+                {/* Sales */}
+                <div
+                  onClick={() => setDailyDetailMode('SALE')}
+                  className="p-5 bg-gradient-to-br from-emerald-50 to-white rounded-2xl border border-emerald-100 shadow-sm flex flex-col items-center justify-center relative cursor-pointer hover:shadow-md transition-all active:scale-95"
+                >
+                  <div className="bg-emerald-100 p-2 rounded-full mb-2">
+                    <ShoppingCart size={18} className="text-emerald-600" />
                   </div>
+                  <p className="text-[10px] text-emerald-400 font-black uppercase tracking-widest mb-1">فروخت</p>
+                  <p className="text-2xl md:text-3xl font-black text-emerald-700">{dailyStats.sale}</p>
+                  <p className="text-[10px] text-emerald-300 font-bold">لیٹر</p>
                 </div>
 
                 {/* Balance Bar */}
