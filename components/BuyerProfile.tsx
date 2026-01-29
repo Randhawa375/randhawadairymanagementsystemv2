@@ -421,7 +421,7 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
 
         // Inner Content Wrapper (Flex grow to fill space)
         container.innerHTML = `
-          ${headerHTML}
+          ${pageNumber === 1 ? headerHTML : '<div class="h-8"></div>'}
           <div class="flex-grow flex flex-col">
             ${pageContentHTML}
           </div>
@@ -774,7 +774,7 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
         `;
 
         container.innerHTML = `
-          ${headerHTML}
+          ${pageNumber === 1 ? headerHTML : '<div class="h-8"></div>'}
           <div class="flex-grow flex flex-col">
              <table class="w-full text-right border border-gray-200 rounded-lg overflow-hidden mb-8">
                 <thead class="bg-gray-800 text-white">
