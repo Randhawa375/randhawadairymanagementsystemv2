@@ -358,240 +358,327 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
   const handleDownloadPDF = async () => {
     setIsGeneratingPDF(true);
     try {
-      // Create a temporary container for the report
-      const printContainer = document.createElement('div');
-      printContainer.className = "fixed inset-0 bg-white z-[9999] p-8 font-sans";
-      printContainer.style.width = "210mm"; // A4 Width
-      printContainer.style.minHeight = "297mm";
-      printContainer.style.position = 'absolute';
-      printContainer.style.left = '-10000px'; // Move horizontally off-screen
-      printContainer.style.top = '0'; // Keep top aligned to avoid height glitches
-      document.body.appendChild(printContainer);
+      // 1. Setup PDF
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth(); // 210mm
+      const pageHeight = pdf.internal.pageSize.getHeight(); // 297mm
+      const margin = 10;
+      const contentWidth = pageWidth - (margin * 2);
 
-      // Render the content (Construct HTML strings or use ReactDOM.render if complex, but simple HTML is fast)
-      // Since it's React, we can't easily ReactDOM.render in a functional component without side effects.
-      // We will build the innerHTML manually for speed and simplicity.
-
+      // 2. Prepare Data
       const engMonth = getEnglishMonthLabel(selectedMonthDate);
 
-      let tableRows = '';
+      // Filter & Sort Records
+      const recordsToPrint = buyer.records
+        .filter(r => r.date.startsWith(currentMonthPrefix) && r.totalQuantity > 0)
+        .sort((a, b) => a.date.localeCompare(b.date));
 
-      // Add Previous Balance Row
-      if (previousBalance !== 0) {
-        tableRows += `
-            <tr class="bg-gray-50 border-b border-gray-100">
-              <td class="p-2 text-right border-r border-gray-200 font-bold text-gray-500">سابقہ بیلنس</td>
-              <td class="p-2 text-center text-gray-400">-</td>
-              <td class="p-2 text-center text-gray-400">-</td>
-              <td class="p-2 text-center text-gray-400">-</td>
-              <td class="p-2 text-left font-mono font-bold text-gray-700">${previousBalance.toLocaleString()}</td>
-            </tr>
-        `;
-      }
+      // Filter & Sort Payments
+      const paymentsToPrint = (buyer.payments || [])
+        .filter(p => p.date.startsWith(currentMonthPrefix))
+        .sort((a, b) => a.date.localeCompare(b.date));
 
-      tableRows += daysInMonth.map(dateStr => {
-        const record = buyer.records.find(r => r.date === dateStr);
-        if (!record || record.totalQuantity <= 0) return '';
-        return `
-            <tr class="border-b border-gray-100">
-              <td class="p-2 text-right border-r border-gray-200">${formatUrduDate(dateStr)}</td>
-              <td class="p-2 text-center text-gray-600">${record.morningQuantity || '-'}</td>
-              <td class="p-2 text-center text-gray-600">${record.eveningQuantity || '-'}</td>
-              <td class="p-2 text-center font-bold text-gray-900 bg-gray-50">${record.totalQuantity}</td>
-              <td class="p-2 text-left font-mono text-gray-700">${record.totalPrice.toLocaleString()}</td>
-            </tr>
-          `;
-      }).join('');
+      // 3. Helper: Render & Capture Single Page
+      const renderPage = async (pageContentHTML: string, pageNumber: number, totalPages: number) => {
+        // Create container
+        const container = document.createElement('div');
+        container.className = "fixed inset-0 bg-white z-[9999] p-8 font-sans flex flex-col justify-between";
+        container.style.width = "210mm";
+        container.style.height = "297mm"; // Fixed A4 Height
+        container.style.position = 'absolute';
+        container.style.left = '-10000px';
+        container.style.direction = 'rtl';
+        document.body.appendChild(container);
 
-      // ... [existing milk table construction] ...
-
-      // Construct Payments Table Rows
-      let paymentRows = '';
-      if (monthPayments.length > 0) {
-        paymentRows = monthPayments.map(p => `
-          <tr class="border-b border-gray-100">
-            <td class="p-2 text-right border-r border-gray-200">${formatUrduDate(p.date)}</td>
-            <td class="p-2 text-center text-gray-600">${p.description || '-'}</td>
-            <td class="p-2 text-left font-mono font-bold text-green-600">${p.amount.toLocaleString()}</td>
-          </tr>
-        `).join('');
-      } else {
-        paymentRows = '<tr><td colspan="3" class="p-4 text-center text-gray-400 text-xs">اس ماہ کوئی وصولی نہیں ہوئی</td></tr>';
-      }
-
-      printContainer.innerHTML = `
-        <div style="direction: rtl; font-family: sans-serif;">
-          <!-- Header -->
-          <div class="text-center mb-6 border-b-2 border-gray-100 pb-4">
-            <h1 class="text-3xl font-black text-gray-900 mb-2">رندھاوا ڈیری اینڈ کیٹل فارم</h1>
-            <p class="text-gray-500 font-bold text-lg">پروپرائیٹر: چوہدری یوسف رندھاوا</p>
+        // Header HTML
+        const headerHTML = `
+          <div class="text-center mb-4 border-b-2 border-gray-100 pb-2">
+            <h1 class="text-2xl font-black text-gray-900 mb-1">رندھاوا ڈیری اینڈ کیٹل فارم</h1>
+            <p class="text-gray-500 font-bold text-sm">پروپرائیٹر: چوہدری یوسف رندھاوا</p>
           </div>
-
-          <!-- Meta -->
-          <div class="flex justify-between items-end mb-8 bg-gray-50 p-6 rounded-2xl">
+          <div class="flex justify-between items-end mb-4 bg-gray-50 p-4 rounded-xl">
+             <div class="text-right">
+              <p class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">نام</p>
+              <h2 class="text-xl font-black text-${isSale ? 'emerald' : 'rose'}-600">${buyer.name}</h2>
+              <p class="text-xs text-gray-500 mt-1 font-bold">ریٹ: ${buyer.pricePerLiter} روپے</p>
+            </div>
             <div class="text-left">
               <p class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">RECORD TYPE</p>
-              <p class="font-bold text-gray-800">MILK LEDGER</p>
-              <p class="text-xs text-gray-400 font-bold uppercase tracking-widest mt-4 mb-1">MONTH</p>
-              <p class="font-bold text-gray-800">${engMonth}</p>
-            </div>
-            <div class="text-right">
-              <p class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">نام</p>
-              <h2 class="text-2xl font-black text-${isSale ? 'emerald' : 'rose'}-600">${buyer.name}</h2>
-              <p class="text-xs text-gray-500 mt-1 font-bold">ریٹ: ${buyer.pricePerLiter} روپے فی لیٹر</p>
+              <p class="font-bold text-gray-800 text-sm">MILK LEDGER</p>
+              <p class="text-xs text-gray-400 font-bold uppercase tracking-widest mt-2 mb-1">MONTH</p>
+              <p class="font-bold text-gray-800 text-sm">${engMonth}</p>
             </div>
           </div>
+        `;
 
-          <!-- Milk Table -->
-          <h3 class="text-sm font-bold text-gray-500 uppercase tracking-widest mb-2 mt-6">دودھ کا لیدہ (Milk Ledger)</h3>
-          <table class="w-full text-right border border-gray-200 rounded-lg overflow-hidden mb-6">
-            <thead class="bg-${isSale ? 'emerald' : 'rose'}-600 text-white">
-              <tr>
-                <th class="p-2 font-bold text-sm border-r border-white/20">تاریخ</th>
-                <th class="p-2 font-bold text-sm text-center">صبح</th>
-                <th class="p-2 font-bold text-sm text-center">شام</th>
-                <th class="p-2 font-bold text-sm text-center bg-black/10">کل</th>
-                <th class="p-2 font-bold text-sm text-left">بل (روپے)</th>
-              </tr>
-            </thead>
-            <tbody>${tableRows}</tbody>
-          </table>
-
-          <!-- Payments Table -->
-          <div style="margin-top: 40px; page-break-inside: avoid;">
-            <h3 class="text-sm font-bold text-gray-500 uppercase tracking-widest mb-2">وصولی / ادائیگی (Payments)</h3>
-            <table class="w-full text-right border border-gray-200 rounded-lg overflow-hidden mb-6">
-              <thead class="bg-gray-800 text-white">
-                <tr>
-                  <th class="p-2 font-bold text-sm border-r border-white/20">تاریخ</th>
-                  <th class="p-2 font-bold text-sm text-center">تفصیل</th>
-                  <th class="p-2 font-bold text-sm text-left">رقم</th>
-                </tr>
-              </thead>
-              <tbody>${paymentRows}</tbody>
-            </table>
+        // Footer HTML
+        const footerHTML = `
+          <div class="mt-auto pt-4 border-t border-gray-200 text-center flex justify-between items-center text-[10px] text-gray-400">
+             <span>Page ${pageNumber} of ${totalPages}</span>
+             <span>Generated on ${new Date().toLocaleDateString()}</span>
           </div>
+        `;
 
-          <!-- Summary -->
-          <div class="flex justify-end mt-10">
-            <div class="w-64 bg-gray-50 p-6 rounded-2xl border border-gray-200">
-               <div class="flex justify-between mb-2 pb-2 border-b border-gray-200">
-                <span class="text-gray-500 font-bold">سابقہ بیلنس</span>
-                <span class="font-bold text-gray-700">${previousBalance.toLocaleString()}</span>
-              </div>
-              <div class="flex justify-between mb-2">
-                <span class="text-gray-500 font-bold">کل دودھ</span>
-                <span class="font-black">${monthMilk} لیٹر</span>
-              </div>
-              <div class="flex justify-between mb-2">
-                <span class="text-gray-500 font-bold">کل بل</span>
-                <span class="font-black">${monthBill.toLocaleString()}</span>
-              </div>
-              <div class="flex justify-between mb-2">
-                <span class="text-gray-500 font-bold">وصولی</span>
-                <span class="font-bold text-green-600">${monthPaid.toLocaleString()}</span>
-              </div>
-              <div class="flex justify-between text-lg pt-2">
-                <span class="font-black text-gray-800">بقایا جات</span>
-                <span class="font-black text-${totalBalance > 0 ? (isSale ? 'emerald' : 'rose') : 'blue'}-600">${totalBalance.toLocaleString()}</span>
-              </div>
-            </div>
+        // Inner Content Wrapper (Flex grow to fill space)
+        container.innerHTML = `
+          ${headerHTML}
+          <div class="flex-grow flex flex-col">
+            ${pageContentHTML}
           </div>
-        </div>
-      `;
+          ${footerHTML}
+        `;
 
-      // Wait a moment for rendering
-      await new Promise(resolve => setTimeout(resolve, 100));
+        // Wait for render
+        await new Promise(resolve => setTimeout(resolve, 50));
 
-      // Cleanup function to avoid memory leaks
-      const cleanup = () => {
-        if (document.body.contains(printContainer)) {
-          document.body.removeChild(printContainer);
-        }
+        // Capture
+        const canvas = await html2canvas(container, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff'
+        });
+
+        // Cleanup
+        document.body.removeChild(container);
+
+        // Add to PDF
+        const imgData = canvas.toDataURL('image/jpeg', 0.90);
+        if (pageNumber > 1) pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
       };
 
-      // Wait a moment for rendering
-      await new Promise(resolve => setTimeout(resolve, 500)); // Increase wait time
 
-      // Capture Ledger
-      const canvas = await html2canvas(printContainer, {
-        scale: 2, // High resolution
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        windowWidth: 210 * 3.7795275591, // A4 width in px (approx)
-        height: printContainer.scrollHeight // EXPLICIT HEIGHT to prevent extra whitespace
-      });
+      // 4. Batching Logic
+      // We will estimate rows per page.
+      // A4 Height ~297mm. Header/Footer/Margins take ~100mm. Available ~190mm.
+      // Each row is approx 10-12mm. So ~15-18 rows per page safely.
+      // Let's go with 16 rows per page to be safe.
 
-      cleanup(); // Cleanup Ledger Container
+      const ITEMS_PER_PAGE = 18;
 
-      // Generate PDF (Multi-Page Support)
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
-      const pdf = new jsPDF('p', 'mm', 'a4');
+      // Combine Data for Pagination (Just to count total pages effectively)
+      // Actually, we have two tables. We should print Table 1, then Table 2.
+      // If Table 1 ends mid-page, start Table 2 immediately.
+      // This is complex to batch perfectly with fixed HTML templates.
+      // simpler approach: Just treat everything as a list of "Items" to render.
 
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
+      // Let's build a print queue.
+      // Type: 'MilkRow' | 'PaymentRow' | 'Summary'
 
-      const imgWidth = canvas.width;
-      const imgHeight = canvas.height;
+      let printQueue: any[] = [];
 
-      const ratio = pageWidth / imgWidth;
-      const scaledHeight = imgHeight * ratio;
-
-      let heightLeft = scaledHeight;
-      let position = 0;
-      let pageCount = 0;
-
-      // First Page
-      pdf.addImage(imgData, 'JPEG', 0, position, pageWidth, scaledHeight);
-      heightLeft -= pageHeight;
-      pageCount++;
-
-      // Subsequent Pages
-      while (heightLeft > 5) { // Threshold of 5mm to avoid tiny slivers creating a new page
-        position = heightLeft - scaledHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, -(pageHeight * pageCount), pageWidth, scaledHeight);
-        heightLeft -= pageHeight;
-        pageCount++;
+      // Add Previous Balance Row (Special)
+      if (previousBalance !== 0) {
+        printQueue.push({ type: 'PREV_BAL', balance: previousBalance });
       }
 
-      // --------------------------------------------------------------------------
-      // APPEND IMAGES
-      // --------------------------------------------------------------------------
+      // Add Milk Rows
+      recordsToPrint.forEach(r => printQueue.push({ type: 'MILK', data: r }));
+
+      // Add Payment Rows (With Header if needed)
+      if (paymentsToPrint.length > 0) {
+        printQueue.push({ type: 'PAYMENT_HEADER' });
+        paymentsToPrint.forEach(p => printQueue.push({ type: 'PAYMENT', data: p }));
+      } else {
+        printQueue.push({ type: 'PAYMENT_HEADER' });
+        printQueue.push({ type: 'PAYMENT_EMPTY' });
+      }
+
+      // Add Summary (Takes up ~5 rows worth of space)
+      printQueue.push({ type: 'SUMMARY' });
+
+      // Calculate Batches
+      const batches = [];
+      let currentBatch = [];
+      let currentCount = 0;
+
+      for (const item of printQueue) {
+        const itemWeight = item.type === 'SUMMARY' ? 6 : (item.type === 'PAYMENT_HEADER' ? 2 : 1);
+
+        if (currentCount + itemWeight > ITEMS_PER_PAGE) {
+          batches.push(currentBatch);
+          currentBatch = [];
+          currentCount = 0;
+        }
+
+        currentBatch.push(item);
+        currentCount += itemWeight;
+      }
+      if (currentBatch.length > 0) batches.push(currentBatch);
+
+
+      // 5. Render Batches
+      for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i];
+
+        // Build HTML for Batch
+        let batchHTML = '';
+
+        // Tracking open tables to close them effectively is tricky if we mix types.
+        // We'll use simple tables for each section or a master table structure.
+        // To keep alignment, let's use a unified table structure if possible, OR separate tables.
+
+        // We will render items. If we switch types, we might need to close/open tables.
+        // Simplified: Using a flex/grid layout for rows might be easier than table tags for mixed content across pages?
+        // No, tables are best for alignment.
+        // Let's try to wrap the whole batch in a table, but 'PAYMENT_HEADER' breaks it.
+        // Okay, we will build HTML strings dynamically.
+
+        let inMilkTable = false;
+        let inPaymentTable = false;
+
+        const startMilkTable = () => `
+          <h3 class="text-sm font-bold text-gray-500 uppercase tracking-widest mb-2 mt-2">دودھ کا لیدہ (Milk Ledger)</h3>
+          <table class="w-full text-right border border-gray-200 rounded-lg overflow-hidden mb-4 text-sm">
+            <thead class="bg-${isSale ? 'emerald' : 'rose'}-600 text-white">
+              <tr>
+                <th class="p-2 font-bold w-24 border-r border-white/20">تاریخ</th>
+                <th class="p-2 font-bold text-center">صبح</th>
+                <th class="p-2 font-bold text-center">شام</th>
+                <th class="p-2 font-bold text-center bg-black/10">کل</th>
+                <th class="p-2 font-bold text-left">بل (روپے)</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
+
+        const startPaymentTable = () => `
+           <h3 class="text-sm font-bold text-gray-500 uppercase tracking-widest mb-2 mt-4">وصولی / ادائیگی (Payments)</h3>
+            <table class="w-full text-right border border-gray-200 rounded-lg overflow-hidden mb-4 text-sm">
+              <thead class="bg-gray-800 text-white">
+                <tr>
+                  <th class="p-2 font-bold w-24 border-r border-white/20">تاریخ</th>
+                  <th class="p-2 font-bold text-center">تفصیل</th>
+                  <th class="p-2 font-bold text-left">رقم</th>
+                </tr>
+              </thead>
+              <tbody>
+        `;
+
+        const closeTable = () => `</tbody></table>`;
+
+        // Check first item to determine state
+        if (batch[0].type === 'MILK' || batch[0].type === 'PREV_BAL') {
+          batchHTML += startMilkTable();
+          inMilkTable = true;
+        } else if (batch[0].type === 'PAYMENT') { // Should ideally be preceded by HEADER
+          batchHTML += startPaymentTable();
+          inPaymentTable = true;
+        }
+
+        for (const item of batch) {
+          if (item.type === 'PREV_BAL') {
+            batchHTML += `
+                    <tr class="bg-gray-50 border-b border-gray-100">
+                      <td class="p-2 font-bold text-gray-500">سابقہ بیلنس</td>
+                      <td class="p-2 text-center text-gray-400">-</td>
+                      <td class="p-2 text-center text-gray-400">-</td>
+                      <td class="p-2 text-center text-gray-400">-</td>
+                      <td class="p-2 text-left font-mono font-bold text-gray-700">${item.balance.toLocaleString()}</td>
+                    </tr>
+                `;
+          }
+          if (item.type === 'MILK') {
+            if (!inMilkTable) {
+              if (inPaymentTable) { batchHTML += closeTable(); inPaymentTable = false; }
+              batchHTML += startMilkTable(); inMilkTable = true;
+            }
+            const r = item.data;
+            batchHTML += `
+                    <tr class="border-b border-gray-100">
+                      <td class="p-2 border-r border-gray-200 whitespace-nowrap">${formatUrduDate(r.date)}</td>
+                      <td class="p-2 text-center text-gray-600">${r.morningQuantity || '-'}</td>
+                      <td class="p-2 text-center text-gray-600">${r.eveningQuantity || '-'}</td>
+                      <td class="p-2 text-center font-bold text-gray-900 bg-gray-50">${r.totalQuantity}</td>
+                      <td class="p-2 text-left font-mono text-gray-700">${r.totalPrice.toLocaleString()}</td>
+                    </tr>
+                 `;
+          }
+          if (item.type === 'PAYMENT_HEADER') {
+            if (inMilkTable) { batchHTML += closeTable(); inMilkTable = false; }
+            if (!inPaymentTable) { batchHTML += startPaymentTable(); inPaymentTable = true; }
+          }
+          if (item.type === 'PAYMENT') {
+            if (!inPaymentTable) {
+              if (inMilkTable) { batchHTML += closeTable(); inMilkTable = false; }
+              batchHTML += startPaymentTable(); inPaymentTable = true;
+            }
+            const p = item.data;
+            batchHTML += `
+                  <tr class="border-b border-gray-100">
+                    <td class="p-2 border-r border-gray-200 whitespace-nowrap">${formatUrduDate(p.date)}</td>
+                    <td class="p-2 text-center text-gray-600">${p.description || '-'}</td>
+                    <td class="p-2 text-left font-mono font-bold text-green-600">${p.amount.toLocaleString()}</td>
+                  </tr>
+                 `;
+          }
+          if (item.type === 'PAYMENT_EMPTY') {
+            batchHTML += `<tr><td colspan="3" class="p-4 text-center text-gray-400 text-xs">اس ماہ کوئی وصولی نہیں ہوئی</td></tr>`;
+          }
+          if (item.type === 'SUMMARY') {
+            if (inMilkTable) { batchHTML += closeTable(); inMilkTable = false; }
+            if (inPaymentTable) { batchHTML += closeTable(); inPaymentTable = false; }
+
+            batchHTML += `
+                   <div class="flex justify-end mt-6">
+                    <div class="w-64 bg-gray-50 p-4 rounded-xl border border-gray-200 text-sm">
+                       <div class="flex justify-between mb-2 pb-2 border-b border-gray-200">
+                        <span class="text-gray-500 font-bold">سابقہ بیلنس</span>
+                        <span class="font-bold text-gray-700">${previousBalance.toLocaleString()}</span>
+                      </div>
+                      <div class="flex justify-between mb-1">
+                        <span class="text-gray-500 font-bold">کل دودھ</span>
+                        <span class="font-black">${monthMilk} لیٹر</span>
+                      </div>
+                      <div class="flex justify-between mb-1">
+                        <span class="text-gray-500 font-bold">کل بل</span>
+                        <span class="font-black">${monthBill.toLocaleString()}</span>
+                      </div>
+                      <div class="flex justify-between mb-1">
+                        <span class="text-gray-500 font-bold">وصولی</span>
+                        <span class="font-bold text-green-600">${monthPaid.toLocaleString()}</span>
+                      </div>
+                      <div class="flex justify-between text-base pt-2 border-t border-gray-200 mt-2">
+                        <span class="font-black text-gray-800">بقایا جات</span>
+                        <span class="font-black text-${totalBalance > 0 ? (isSale ? 'emerald' : 'rose') : 'blue'}-600">${totalBalance.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                 `;
+          }
+        }
+
+        if (inMilkTable) batchHTML += closeTable();
+        if (inPaymentTable) batchHTML += closeTable();
+
+        // Render Page
+        await renderPage(batchHTML, i + 1, batches.length);
+      }
+
+
+      // 6. Handle Images (Separate Pages as before, or appended?)
       const recordsWithImages = buyer.records
         .filter(r => r.imageUrl && r.date.startsWith(currentMonthPrefix))
-        .sort((a, b) => a.date.localeCompare(b.date)); // Sort by date
+        .sort((a, b) => a.date.localeCompare(b.date));
 
       if (recordsWithImages.length > 0) {
+        // Just use standard logic to add pages for images
+        // We can reuse the same renderPage logic if we wrap images in HTML
+        // OR just plain jsPDF addImage for full control.
+        // Let's use plain jsPDF for images to keep them max quality.
+
+        // Add a "Receipts Divider" page? Or just start adding them.
         pdf.addPage();
         pdf.setFontSize(20);
-        pdf.setTextColor(40, 40, 40);
-        pdf.text("Attached Receipts / Images", pageWidth / 2, 20, { align: 'center' });
-
-        // We will try to stack 2 images per page or 1 large one.
-        // Simplified approach: 1 or 2 images per page depending on aspect ratio?
-        // Let's just put max 2 per page to be safe.
+        pdf.setTextColor(40);
+        pdf.text("Attached Receipts", 105, 20, { align: 'center' });
 
         let yOffset = 30;
-        let imagesOnPage = 0;
 
         for (const record of recordsWithImages) {
           if (!record.imageUrl) continue;
 
-          if (imagesOnPage >= 2) {
-            pdf.addPage();
-            yOffset = 20;
-            imagesOnPage = 0;
-          }
-
           try {
-            // Fetch image as base64 (needed for jsPDF addImage to work reliably across protocols)
-            // However, since we used CORS for html2canvas, we might be lucky. 
-            // But for addImage with URL, it's safer to fetch blob or base64.
-            // Simplest way: create an Image element, wait load, draw to canvas, get base64.
-            // But since we are inside an async function, we can do it.
-
             const imgBlob = await fetch(record.imageUrl).then(res => res.blob());
             const base64 = await new Promise<string>((resolve) => {
               const reader = new FileReader();
@@ -599,43 +686,36 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
               reader.readAsDataURL(imgBlob);
             });
 
-            // Get dimensions
             const imgProps = pdf.getImageProperties(base64);
-            const availableWidth = pageWidth - 40; // 20mm margin
-            const availableHeight = (pageHeight - 60) / 2; // Split page height for 2 images
+            const availableWidth = 170;
+            const availableHeight = 120; // 2 per page approx
 
-            // Scale to fit
             const widthRatio = availableWidth / imgProps.width;
             const heightRatio = availableHeight / imgProps.height;
-            const scale = Math.min(widthRatio, heightRatio, 1); // Don't upscale
+            const scale = Math.min(widthRatio, heightRatio, 1);
 
             const finalWidth = imgProps.width * scale;
             const finalHeight = imgProps.height * scale;
 
-            // Center horizontally
-            const xPos = (pageWidth - finalWidth) / 2;
+            if (yOffset + finalHeight > 280) {
+              pdf.addPage();
+              yOffset = 20;
+            }
 
             pdf.setFontSize(10);
-            pdf.setTextColor(100);
-            pdf.text(`Date: ${record.date}`, xPos, yOffset - 2);
+            pdf.text(`Date: ${record.date}`, 20, yOffset - 2);
+            pdf.addImage(base64, 'JPEG', 20, yOffset, finalWidth, finalHeight);
+            yOffset += finalHeight + 20;
 
-            pdf.addImage(base64, 'JPEG', xPos, yOffset, finalWidth, finalHeight);
-
-            yOffset += availableHeight + 15;
-            imagesOnPage++;
-
-          } catch (err) {
-            console.error("Failed to add PDF image for", record.date, err);
-            // Verify if we should show a placeholder or skip
-            pdf.setFontSize(10);
-            pdf.setTextColor(200, 50, 50);
-            pdf.text(`[Image Load Failed: ${record.date}]`, 20, yOffset);
-            yOffset += 20;
+          } catch (e) {
+            console.error("Img fail", e);
           }
         }
       }
 
-      pdf.save(`${buyer.name}_Ledger_${engMonth}.pdf`);
+      // 7. Save
+      const filename = `Milk_Ledger_${buyer.name.replace(/\s+/g, '_')}_${engMonth.replace(/\s+/g, '_')}.pdf`;
+      pdf.save(filename);
 
     } catch (e) {
       console.error(e);
@@ -648,34 +728,26 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
   const handleDownloadPaymentPDF = async () => {
     setIsGeneratingPaymentPDF(true);
     try {
-      const printContainer = document.createElement('div');
-      printContainer.className = "fixed inset-0 bg-white z-[9999] p-8 font-sans";
-      printContainer.style.width = "210mm";
-      printContainer.style.minHeight = "297mm";
-      printContainer.style.position = 'absolute';
-      printContainer.style.left = '-10000px'; // Move horizontally off-screen
-      printContainer.style.top = '0'; // Keep top aligned to avoid height glitches
-      document.body.appendChild(printContainer);
+      const pdf = new jsPDF('p', 'mm', 'a4');
 
       const engMonth = getEnglishMonthLabel(selectedMonthDate);
 
-      const rows = monthPayments.map(p => `
-        <tr class="border-b border-gray-100">
-          <td class="p-3 text-right border-r border-gray-200">${formatUrduDate(p.date)}</td>
-          <td class="p-3 text-left font-mono font-bold text-gray-900">${p.amount.toLocaleString()}</td>
-          <td class="p-3 text-right text-gray-600 text-sm">${p.description || '-'}</td>
-        </tr>
-      `).join('');
+      // Helper to Render Page
+      const renderPage = async (pageContentHTML: string, pageNumber: number, totalPages: number) => {
+        const container = document.createElement('div');
+        container.className = "fixed inset-0 bg-white z-[9999] p-8 font-sans flex flex-col justify-between";
+        container.style.width = "210mm";
+        container.style.height = "297mm";
+        container.style.position = 'absolute';
+        container.style.left = '-10000px';
+        container.style.direction = 'rtl';
+        document.body.appendChild(container);
 
-      printContainer.innerHTML = `
-        <div style="direction: rtl; font-family: sans-serif;">
-           <!-- Header -->
-          <div class="text-center mb-8 border-b-2 border-gray-100 pb-6">
+        const headerHTML = `
+          <div class="text-center mb-6 border-b-2 border-gray-100 pb-4">
             <h1 class="text-3xl font-black text-gray-900 mb-2">رندھاوا ڈیری اینڈ کیٹل فارم</h1>
             <p class="text-gray-500 font-bold text-lg">پروپرائیٹر: چوہدری یوسف رندھاوا</p>
           </div>
-
-          <!-- Meta -->
           <div class="flex justify-between items-end mb-8 bg-gray-50 p-6 rounded-2xl">
             <div class="text-left">
               <p class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">RECORD TYPE</p>
@@ -688,45 +760,84 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
               <h2 class="text-2xl font-black text-${isSale ? 'emerald' : 'rose'}-600">${buyer.name}</h2>
             </div>
           </div>
+        `;
 
-          <!-- Table -->
-          <table class="w-full text-right border border-gray-200 rounded-lg overflow-hidden mb-8">
-            <thead class="bg-slate-800 text-white">
-              <tr>
-                <th class="p-4 font-bold text-sm border-r border-white/20">تاریخ</th>
-                <th class="p-4 font-bold text-sm text-center">رقم (روپے)</th>
-                <th class="p-4 font-bold text-sm text-right">تفصیل / نوٹ</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows || '<tr><td colspan="3" class="p-8 text-center text-gray-400">کوئی پیمنٹ ریکارڈ نہیں</td></tr>'}
-            </tbody>
-          </table>
-
-          <div class="mt-8 text-center bg-gray-900 text-white p-4 rounded-xl">
-            <p class="text-xs font-bold uppercase tracking-widest opacity-60 mb-1">کل ادا شدہ رقم</p>
+        const footerHTML = `
+           <div class="mt-8 text-center bg-gray-900 text-white p-4 rounded-xl">
+            <p class="text-xs font-bold uppercase tracking-widest opacity-60 mb-1">کل ادا شدہ رقم (Total Paid)</p>
             <p class="text-2xl font-black">${monthPaid.toLocaleString()} PKR</p>
           </div>
-        </div>
-      `;
+          <div class="mt-auto pt-4 border-t border-gray-200 text-center flex justify-between items-center text-[10px] text-gray-400">
+             <span>Page ${pageNumber} of ${totalPages}</span>
+             <span>Generated on ${new Date().toLocaleDateString()}</span>
+          </div>
+        `;
 
-      await new Promise(resolve => setTimeout(resolve, 100));
+        container.innerHTML = `
+          ${headerHTML}
+          <div class="flex-grow flex flex-col">
+             <table class="w-full text-right border border-gray-200 rounded-lg overflow-hidden mb-8">
+                <thead class="bg-gray-800 text-white">
+                  <tr>
+                    <th class="p-4 font-bold text-sm border-r border-white/20">تاریخ</th>
+                    <th class="p-4 font-bold text-sm text-center">رقم (روپے)</th>
+                    <th class="p-4 font-bold text-sm text-right">تفصیل / نوٹ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${pageContentHTML}
+                </tbody>
+             </table>
+          </div>
+          ${footerHTML}
+        `;
 
-      const canvas = await html2canvas(printContainer, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff'
-      });
+        await new Promise(resolve => setTimeout(resolve, 50));
 
-      document.body.removeChild(printContainer);
+        const canvas = await html2canvas(container, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff'
+        });
 
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+        document.body.removeChild(container);
 
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`${buyer.name}_Payments_Report_${engMonth}.pdf`);
+        const imgData = canvas.toDataURL('image/jpeg', 0.90);
+        if (pageNumber > 1) pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
+      };
+
+      // Batching
+      const ITEMS_PER_PAGE = 15;
+      const batches = [];
+      for (let i = 0; i < monthPayments.length; i += ITEMS_PER_PAGE) {
+        batches.push(monthPayments.slice(i, i + ITEMS_PER_PAGE));
+      }
+
+      if (batches.length === 0) {
+        // Handle Empty Case
+        await renderPage(
+          '<tr><td colspan="3" class="p-8 text-center text-gray-400">کوئی پیمنٹ ریکارڈ نہیں</td></tr>',
+          1,
+          1
+        );
+      } else {
+        for (let i = 0; i < batches.length; i++) {
+          const batch = batches[i];
+          const rowsHTML = batch.map(p => `
+            <tr class="border-b border-gray-100">
+              <td class="p-3 text-right border-r border-gray-200">${formatUrduDate(p.date)}</td>
+              <td class="p-3 text-center font-mono font-bold text-gray-900">${p.amount.toLocaleString()}</td>
+              <td class="p-3 text-right text-gray-600 text-sm">${p.description || '-'}</td>
+            </tr>
+          `).join('');
+
+          await renderPage(rowsHTML, i + 1, batches.length);
+        }
+      }
+
+      const filename = `Payment_Report_${buyer.name.replace(/\s+/g, '_')}_${engMonth.replace(/\s+/g, '_')}.pdf`;
+      pdf.save(filename);
 
     } catch (e) {
       console.error(e);
