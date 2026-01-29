@@ -1116,7 +1116,7 @@ const App: React.FC = () => {
               </div>
 
               {/* Balance Bar - New Design */}
-              <div className={`my-10 p-8 rounded-[2.5rem] border-2 ${netRemaining >= 0 ? 'bg-emerald-50/50 border-emerald-100' : 'bg-red-50/50 border-red-100'} flex items-center justify-between relative overflow-hidden transition-all duration-300`}>
+              <div className={`my-8 p-5 rounded-[2.5rem] border-2 ${netRemaining >= 0 ? 'bg-emerald-50/50 border-emerald-100' : 'bg-red-50/50 border-red-100'} flex items-center justify-between relative overflow-hidden transition-all duration-300`}>
                 <div className={`absolute left-0 top-0 bottom-0 w-2 ${netRemaining >= 0 ? 'bg-emerald-400' : 'bg-red-400'}`}></div>
                 <div className="flex items-center gap-4 pl-4">
                   <div className={`p-3 rounded-full shadow-sm ${netRemaining >= 0 ? 'bg-white text-emerald-600' : 'bg-white text-red-600'}`}>
