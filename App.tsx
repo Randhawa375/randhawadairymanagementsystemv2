@@ -1008,12 +1008,12 @@ const App: React.FC = () => {
               </div>
 
               {/* Grid with 5 Cards now (History added) - Updated 01/16/2026 01:28 AM */}
-              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6">
                 {/* Previous Stock */}
                 {/* Previous Stock (Editable) */}
                 <div
                   onClick={() => setIsEditingStock(true)}
-                  className="p-5 bg-slate-50 cursor-pointer hover:bg-slate-100 rounded-2xl border border-slate-200 flex flex-col items-center justify-center col-span-2 md:col-span-1 shadow-sm transition-colors group relative"
+                  className="p-6 bg-slate-50 cursor-pointer hover:bg-slate-100 rounded-[2.5rem] border border-slate-200 flex flex-col items-center justify-center col-span-2 md:col-span-1 shadow-sm transition-colors group relative"
                 >
                   {/* Visual Indicator for Edit */}
                   <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1071,7 +1071,7 @@ const App: React.FC = () => {
                 </div>
 
                 {/* Farm */}
-                <div className="p-5 bg-gradient-to-br from-blue-50 to-white rounded-2xl border border-blue-100 shadow-sm flex flex-col items-center justify-center">
+                <div className="p-6 bg-gradient-to-br from-blue-50 to-white rounded-[2.5rem] border border-blue-100 shadow-sm flex flex-col items-center justify-center">
                   <div className="bg-blue-100 p-2 rounded-full mb-2">
                     <Tractor size={18} className="text-blue-600" />
                   </div>
@@ -1083,7 +1083,7 @@ const App: React.FC = () => {
                 {/* Purchase */}
                 <div
                   onClick={() => setDailyDetailMode('PURCHASE')}
-                  className="p-5 bg-gradient-to-br from-rose-50 to-white rounded-2xl border border-rose-100 shadow-sm flex flex-col items-center justify-center cursor-pointer hover:shadow-md transition-all active:scale-95"
+                  className="p-6 bg-gradient-to-br from-rose-50 to-white rounded-[2.5rem] border border-rose-100 shadow-sm flex flex-col items-center justify-center cursor-pointer hover:shadow-md transition-all active:scale-95"
                 >
                   <div className="bg-rose-100 p-2 rounded-full mb-2">
                     <History size={18} className="text-rose-600" />
@@ -1094,7 +1094,7 @@ const App: React.FC = () => {
                 </div>
 
                 {/* Total Available (Today) */}
-                <div className="p-5 bg-gradient-to-br from-slate-50 to-white rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-center relative overflow-hidden">
+                <div className="p-6 bg-gradient-to-br from-slate-50 to-white rounded-[2.5rem] border border-slate-200 shadow-sm flex flex-col items-center justify-center relative overflow-hidden">
                   <div className="absolute top-0 left-0 w-full h-1 bg-slate-200"></div>
                   <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">کل دستیاب</p>
                   <p className="text-2xl md:text-3xl font-black text-slate-700">{totalAvailable}</p>
@@ -1104,7 +1104,7 @@ const App: React.FC = () => {
                 {/* Sales */}
                 <div
                   onClick={() => setDailyDetailMode('SALE')}
-                  className="p-5 bg-gradient-to-br from-emerald-50 to-white rounded-2xl border border-emerald-100 shadow-sm flex flex-col items-center justify-center relative cursor-pointer hover:shadow-md transition-all active:scale-95"
+                  className="p-6 bg-gradient-to-br from-emerald-50 to-white rounded-[2.5rem] border border-emerald-100 shadow-sm flex flex-col items-center justify-center relative cursor-pointer hover:shadow-md transition-all active:scale-95"
                 >
                   <div className="bg-emerald-100 p-2 rounded-full mb-2">
                     <ShoppingCart size={18} className="text-emerald-600" />
@@ -1116,7 +1116,7 @@ const App: React.FC = () => {
               </div>
 
               {/* Balance Bar - New Design */}
-              <div className={`my-10 p-6 rounded-3xl border-2 ${netRemaining >= 0 ? 'bg-emerald-50/50 border-emerald-100' : 'bg-red-50/50 border-red-100'} flex items-center justify-between relative overflow-hidden transition-all duration-300`}>
+              <div className={`my-10 p-8 rounded-[2.5rem] border-2 ${netRemaining >= 0 ? 'bg-emerald-50/50 border-emerald-100' : 'bg-red-50/50 border-red-100'} flex items-center justify-between relative overflow-hidden transition-all duration-300`}>
                 <div className={`absolute left-0 top-0 bottom-0 w-2 ${netRemaining >= 0 ? 'bg-emerald-400' : 'bg-red-400'}`}></div>
                 <div className="flex items-center gap-4 pl-4">
                   <div className={`p-3 rounded-full shadow-sm ${netRemaining >= 0 ? 'bg-white text-emerald-600' : 'bg-white text-red-600'}`}>
