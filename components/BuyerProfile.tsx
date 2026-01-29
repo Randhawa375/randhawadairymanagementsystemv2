@@ -454,7 +454,7 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
       // Each row is approx 10-12mm. So ~15-18 rows per page safely.
       // Let's go with 16 rows per page to be safe.
 
-      const ITEMS_PER_PAGE = 22;
+      const ITEMS_PER_PAGE = 18;
 
       // Combine Data for Pagination (Just to count total pages effectively)
       // Actually, we have two tables. We should print Table 1, then Table 2.
@@ -495,7 +495,11 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
       for (const item of printQueue) {
         const itemWeight = item.type === 'SUMMARY' ? 5 : (item.type === 'PAYMENT_HEADER' ? 2 : 1);
 
-        if (currentCount + itemWeight > ITEMS_PER_PAGE) {
+        // Logic: If adding this item exceeds page limit, start new page.
+        // EXCEPTION: If item is SUMMARY, always squeeze it onto the current page to avoid "lone summary" page.
+        // This ensures the summary is always attached to the last list of items.
+
+        if (item.type !== 'SUMMARY' && currentCount + itemWeight > ITEMS_PER_PAGE) {
           batches.push(currentBatch);
           currentBatch = [];
           currentCount = 0;
