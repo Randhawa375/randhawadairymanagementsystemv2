@@ -4,7 +4,7 @@ import { Contact, ViewState, ModuleType, User } from './types';
 import { getMonthLabel, getEnglishMonthLabel } from './utils';
 import BuyerProfile from './components/BuyerProfile';
 import FarmDashboard from './components/FarmDashboard';
-import { Plus, Users, Milk, DollarSign, X, Settings, Trash2, Wallet, ShoppingCart, TrendingUp, TrendingDown, ChevronLeft, ArrowRight, ChevronRight, Download, Loader2, Sparkles, LogOut, Lock, User as UserIcon, Tractor, Calendar, Check, History, RefreshCw } from 'lucide-react';
+import { Plus, Users, Milk, DollarSign, X, Settings, Trash2, Wallet, ShoppingCart, TrendingUp, TrendingDown, ChevronLeft, ArrowRight, ChevronRight, Download, Loader2, Sparkles, LogOut, Lock, User as UserIcon, Tractor, Calendar, Check, History, RefreshCw, SearchX } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import html2canvas from 'html2canvas';
@@ -1120,24 +1120,25 @@ const App: React.FC = () => {
                   <p className="text-[10px] text-emerald-300 font-bold">لیٹر</p>
                 </div>
 
-                {/* Balance Bar */}
-                <div className={`mt-6 p-4 rounded-xl border ${netRemaining >= 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'} flex items-center justify-between`}>
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-full ${netRemaining >= 0 ? 'bg-emerald-200' : 'bg-red-200'}`}>
-                      {netRemaining >= 0 ? <Check size={16} className="text-emerald-700" /> : <X size={16} className="text-red-700" />}
+                {/* Balance Bar - New Design */}
+                <div className={`mt-8 p-6 rounded-3xl border-2 ${netRemaining >= 0 ? 'bg-emerald-50/50 border-emerald-100' : 'bg-red-50/50 border-red-100'} flex items-center justify-between relative overflow-hidden transition-all duration-300`}>
+                  <div className={`absolute left-0 top-0 bottom-0 w-2 ${netRemaining >= 0 ? 'bg-emerald-400' : 'bg-red-400'}`}></div>
+                  <div className="flex items-center gap-4 pl-4">
+                    <div className={`p-3 rounded-full shadow-sm ${netRemaining >= 0 ? 'bg-white text-emerald-600' : 'bg-white text-red-600'}`}>
+                      {netRemaining >= 0 ? <Check size={24} strokeWidth={3} /> : <X size={24} strokeWidth={3} />}
                     </div>
                     <div>
-                      <p className={`text-sm font-black ${netRemaining >= 0 ? 'text-emerald-800' : 'text-red-800'}`}>
-                        {netRemaining >= 0 ? "اسٹاک برابر" : "اسٹاک کم ہے!"}
+                      <p className={`text-lg font-black ${netRemaining >= 0 ? 'text-emerald-800' : 'text-red-800'}`}>
+                        {netRemaining >= 0 ? "اسٹاک برابر ہے" : "اسٹاک کم ہے!"}
                       </p>
-                      <p className="text-[10px] opacity-70 font-bold uppercase tracking-widest">اسٹیٹس</p>
+                      <p className="text-[11px] opacity-70 font-bold uppercase tracking-widest text-slate-500">اسٹیٹس</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className={`text-2xl font-black ${netRemaining >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                    <p className={`text-3xl font-black ${netRemaining >= 0 ? 'text-emerald-600' : 'text-red-600'} tracking-tight`}>
                       {netRemaining}
                     </p>
-                    <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">بقایا / اگلا دن</p>
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">بقایا / اگلا دن</p>
                   </div>
                 </div>
               </div>
@@ -1306,19 +1307,25 @@ const App: React.FC = () => {
           {dailyDetailMode && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in zoom-in duration-200" onClick={() => setDailyDetailMode(null)}>
               <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100" onClick={e => e.stopPropagation()}>
-                <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                  <button onClick={() => setDailyDetailMode(null)} className="p-2 hover:bg-slate-200 rounded-xl transition-all"><X size={20} className="text-slate-500" /></button>
+                {/* Modal Header */}
+                <div className={`p-8 border-b border-slate-100 flex items-center justify-between ${dailyDetailMode === 'SALE' ? 'bg-emerald-50' : 'bg-rose-50'}`}>
+                  <button onClick={() => setDailyDetailMode(null)} className="p-3 bg-white/50 hover:bg-white rounded-2xl transition-all shadow-sm active:scale-95"><X size={20} className="text-slate-500" /></button>
                   <div className="text-right">
-                    <h3 className={`text-xl font-black ${dailyDetailMode === 'SALE' ? 'text-emerald-700' : 'text-rose-700'}`}>
+                    <h3 className={`text-2xl font-black ${dailyDetailMode === 'SALE' ? 'text-emerald-700' : 'text-rose-700'}`}>
                       {dailyDetailMode === 'SALE' ? 'فروخت کی تفصیل' : 'خریداری کی تفصیل'}
                     </h3>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{dailyDate}</p>
+                    <div className="flex items-center justify-end gap-2 mt-1">
+                      <span className={`h-1.5 w-1.5 rounded-full ${dailyDetailMode === 'SALE' ? 'bg-emerald-400' : 'bg-rose-400'}`}></span>
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{dailyDate}</p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="max-h-[60vh] overflow-y-auto p-4 custom-scrollbar">
+                {/* Modal List */}
+                <div className="max-h-[60vh] overflow-y-auto p-2 custom-scrollbar bg-slate-50/50">
                   {(() => {
                     const sourceData = dailyDetailMode === 'SALE' ? dashboardData.sales : dashboardData.purchases;
+
                     const list = sourceData.map(contact => {
                       const record = contact.records.find(r => r.date === dailyDate);
                       if (record && record.totalQuantity > 0) {
@@ -1329,29 +1336,44 @@ const App: React.FC = () => {
 
                     if (list.length === 0) {
                       return (
-                        <div className="flex flex-col items-center justify-center py-10 text-slate-400">
-                          <p className="font-bold">کوئی ریکارڈ نہیں ملا</p>
+                        <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+                          <div className="bg-slate-100 p-4 rounded-full mb-4">
+                            <SearchX size={32} className="text-slate-300" />
+                          </div>
+                          <p className="font-bold text-lg text-slate-500">کوئی ریکارڈ موجود نہیں</p>
+                          <p className="text-xs text-slate-400 mt-1">منتخب تاریخ کیلئے کوئی ڈیٹا نہیں ملا</p>
                         </div>
                       );
                     }
 
                     return (
-                      <table className="w-full text-right text-sm">
-                        <thead className="bg-slate-100 text-slate-500 font-bold">
-                          <tr>
-                            <th className="p-3 rounded-r-xl">صبح</th>
-                            <th className="p-3 text-center">شام</th>
-                            <th className="p-3 text-center">کل</th>
-                            <th className="p-3 text-right rounded-l-xl">نام</th>
+                      <table className="w-full text-right text-sm border-separate border-spacing-y-2 px-2">
+                        <thead>
+                          <tr className="text-slate-400 text-xs uppercase tracking-widest">
+                            <th className="p-3 font-bold">صبح</th>
+                            <th className="p-3 font-bold text-center">شام</th>
+                            <th className="p-3 font-bold text-center">کل</th>
+                            <th className="p-3 font-bold text-right">نام</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody>
                           {list.map((item, idx) => (
-                            <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                              <td className="p-3 text-slate-600">{item.record.morningQuantity || '-'}</td>
-                              <td className="p-3 text-center text-slate-600">{item.record.eveningQuantity || '-'}</td>
-                              <td className="p-3 text-center font-black text-slate-800 bg-slate-50/50 rounded-lg">{item.record.totalQuantity}</td>
-                              <td className="p-3 font-bold text-slate-700">{item.name}</td>
+                            <tr key={idx} className="group hover:-translate-y-0.5 transition-transform duration-200">
+                              <td className="p-4 bg-white rounded-l-2xl text-slate-500 font-medium border-y border-l border-slate-100 group-hover:border-slate-200 shadow-sm group-hover:shadow-md transition-all">
+                                {item.record.morningQuantity || <span className="text-slate-300">-</span>}
+                              </td>
+                              <td className="p-4 bg-white text-center text-slate-500 font-medium border-y border-slate-100 group-hover:border-slate-200 shadow-sm group-hover:shadow-md transition-all">
+                                {item.record.eveningQuantity || <span className="text-slate-300">-</span>}
+                              </td>
+                              <td className={`p-4 text-center font-black text-lg border-y border-slate-100 group-hover:border-slate-200 shadow-sm group-hover:shadow-md transition-all ${dailyDetailMode === 'SALE' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                                {item.record.totalQuantity}
+                              </td>
+                              <td className="p-4 bg-white rounded-r-2xl font-bold text-slate-700 border-y border-r border-slate-100 group-hover:border-slate-200 shadow-sm group-hover:shadow-md transition-all flex items-center justify-end gap-3">
+                                <span>{item.name}</span>
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black text-white shadow-sm ${dailyDetailMode === 'SALE' ? 'bg-gradient-to-br from-emerald-400 to-emerald-600' : 'bg-gradient-to-br from-rose-400 to-rose-600'}`}>
+                                  {item.name.charAt(0)}
+                                </div>
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -1359,12 +1381,16 @@ const App: React.FC = () => {
                     );
                   })()}
                 </div>
-                <div className="p-4 bg-slate-50 border-t border-slate-100 text-center">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total Records: {
-                    dailyDetailMode === 'SALE' ?
+
+                {/* Modal Footer */}
+                <div className="p-6 bg-white border-t border-slate-100 text-center flex justify-between items-center">
+                  <span className="text-slate-400 text-xs font-bold uppercase tracking-widest">Total Items</span>
+                  <span className={`text-xl font-black ${dailyDetailMode === 'SALE' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    {dailyDetailMode === 'SALE' ?
                       dashboardData.sales.filter(c => c.records.some(r => r.date === dailyDate && r.totalQuantity > 0)).length :
                       dashboardData.purchases.filter(c => c.records.some(r => r.date === dailyDate && r.totalQuantity > 0)).length
-                  }</p>
+                    }
+                  </span>
                 </div>
               </div>
             </div>
