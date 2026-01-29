@@ -620,10 +620,10 @@ const App: React.FC = () => {
 
       // --- Helper: Generate Rows ---
       const generateRows = (contactsList: Contact[]) => {
-        let sumMilk = 0, sumBill = 0, sumPaid = 0, sumBalance = 0;
+        let sumMilk = 0, sumBill = 0, sumPaid = 0, sumBalance = 0, sumPrevBal = 0;
 
         let rows = contactsList.map((c, index) => {
-          // 1. Previous Balance (Calculated based on whole history before this month)
+          // 1. Previous Balance
           const opening = c.openingBalance || 0;
           const pastBill = c.records
             .filter(r => r.date < currentMonthStart)
@@ -653,6 +653,7 @@ const App: React.FC = () => {
           sumBill += curBill;
           sumPaid += curPaid;
           sumBalance += paramsBalance;
+          sumPrevBal += prevBal;
 
           return `
             <tr class="border-b border-gray-100 text-xs">
@@ -670,7 +671,7 @@ const App: React.FC = () => {
           `;
         }).join('');
 
-        return { rows, totals: { sumMilk, sumBill, sumPaid, sumBalance } };
+        return { rows, totals: { sumMilk, sumBill, sumPaid, sumBalance, sumPrevBal } };
       };
 
       // --- Helper: Render a Single Page Batch ---
@@ -679,30 +680,23 @@ const App: React.FC = () => {
         dataBatch: Contact[],
         pageIndex: number,
         totalPages: number,
-        grandTotals?: { sumMilk: number, sumBill: number, sumPaid: number, sumBalance: number }
+        grandTotals?: { sumMilk: number, sumBill: number, sumPaid: number, sumBalance: number, sumPrevBal: number }
       ) => {
         const title = type === 'SALE' ? 'دودھ کی فروخت (Sales)' : 'دودھ کی خریداری (Purchase)';
         const colorClass = type === 'SALE' ? 'emerald' : 'rose';
 
         const { rows, totals } = generateRows(dataBatch);
 
-        // If this is the LAST page for this module, show the Grand Totals row.
-        // Note: The 'totals' returned above are just for this BATCH. 
-        // Ideally we want the totals for the WHOLE set if it's the last page.
-        // Or we just sum up the batch totals? 
-        // Displaying "Page Total" might be confusing. 
-        // Let's pass the pre-calculated GRAND totals to the last page.
-
         let footerRow = '';
         if (pageIndex === totalPages - 1 && grandTotals) {
           footerRow = `
-               <tr class="bg-gray-100 font-black text-sm">
-                  <td colspan="3" class="p-2 text-right">کل میزان (Grand Total)</td>
-                  <td class="p-2 text-center">-</td>
-                  <td class="p-2 text-center">${grandTotals.sumMilk}</td>
-                  <td class="p-2 text-center" dir="ltr">${grandTotals.sumBill.toLocaleString()}</td> 
-                  <td class="p-2 text-center text-emerald-700" dir="ltr">${grandTotals.sumPaid.toLocaleString()}</td>
-                  <td class="p-2 text-left" dir="ltr">${grandTotals.sumBalance.toLocaleString()}</td>
+               <tr class="bg-gray-100 font-black text-sm border-t-2 border-gray-300">
+                  <td colspan="3" class="p-3 text-right">کل میزان (Grand Total)</td>
+                  <td class="p-3 text-center text-gray-600" dir="ltr">${grandTotals.sumPrevBal.toLocaleString()}</td>
+                  <td class="p-3 text-center">${grandTotals.sumMilk}</td>
+                  <td class="p-3 text-center" dir="ltr">${grandTotals.sumBill.toLocaleString()}</td> 
+                  <td class="p-3 text-center text-emerald-700" dir="ltr">${grandTotals.sumPaid.toLocaleString()}</td>
+                  <td class="p-3 text-left ${grandTotals.sumBalance > 0 ? (activeModule === 'SALE' ? 'text-emerald-700' : 'text-rose-700') : 'text-blue-600'}" dir="ltr">${grandTotals.sumBalance.toLocaleString()}</td>
                </tr>
             `;
         }
@@ -1119,27 +1113,27 @@ const App: React.FC = () => {
                   <p className="text-2xl md:text-3xl font-black text-emerald-700">{dailyStats.sale}</p>
                   <p className="text-[10px] text-emerald-300 font-bold">لیٹر</p>
                 </div>
+              </div>
 
-                {/* Balance Bar - New Design */}
-                <div className={`mt-8 p-6 rounded-3xl border-2 ${netRemaining >= 0 ? 'bg-emerald-50/50 border-emerald-100' : 'bg-red-50/50 border-red-100'} flex items-center justify-between relative overflow-hidden transition-all duration-300`}>
-                  <div className={`absolute left-0 top-0 bottom-0 w-2 ${netRemaining >= 0 ? 'bg-emerald-400' : 'bg-red-400'}`}></div>
-                  <div className="flex items-center gap-4 pl-4">
-                    <div className={`p-3 rounded-full shadow-sm ${netRemaining >= 0 ? 'bg-white text-emerald-600' : 'bg-white text-red-600'}`}>
-                      {netRemaining >= 0 ? <Check size={24} strokeWidth={3} /> : <X size={24} strokeWidth={3} />}
-                    </div>
-                    <div>
-                      <p className={`text-lg font-black ${netRemaining >= 0 ? 'text-emerald-800' : 'text-red-800'}`}>
-                        {netRemaining >= 0 ? "اسٹاک برابر ہے" : "اسٹاک کم ہے!"}
-                      </p>
-                      <p className="text-[11px] opacity-70 font-bold uppercase tracking-widest text-slate-500">اسٹیٹس</p>
-                    </div>
+              {/* Balance Bar - New Design */}
+              <div className={`mt-8 p-6 rounded-3xl border-2 ${netRemaining >= 0 ? 'bg-emerald-50/50 border-emerald-100' : 'bg-red-50/50 border-red-100'} flex items-center justify-between relative overflow-hidden transition-all duration-300`}>
+                <div className={`absolute left-0 top-0 bottom-0 w-2 ${netRemaining >= 0 ? 'bg-emerald-400' : 'bg-red-400'}`}></div>
+                <div className="flex items-center gap-4 pl-4">
+                  <div className={`p-3 rounded-full shadow-sm ${netRemaining >= 0 ? 'bg-white text-emerald-600' : 'bg-white text-red-600'}`}>
+                    {netRemaining >= 0 ? <Check size={24} strokeWidth={3} /> : <X size={24} strokeWidth={3} />}
                   </div>
-                  <div className="text-right">
-                    <p className={`text-3xl font-black ${netRemaining >= 0 ? 'text-emerald-600' : 'text-red-600'} tracking-tight`}>
-                      {netRemaining}
+                  <div>
+                    <p className={`text-lg font-black ${netRemaining >= 0 ? 'text-emerald-800' : 'text-red-800'}`}>
+                      {netRemaining >= 0 ? "اسٹاک برابر ہے" : "اسٹاک کم ہے!"}
                     </p>
-                    <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">بقایا / اگلا دن</p>
+                    <p className="text-[11px] opacity-70 font-bold uppercase tracking-widest text-slate-500">اسٹیٹس</p>
                   </div>
+                </div>
+                <div className="text-right">
+                  <p className={`text-3xl font-black ${netRemaining >= 0 ? 'text-emerald-600' : 'text-red-600'} tracking-tight`}>
+                    {netRemaining}
+                  </p>
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">بقایا / اگلا دن</p>
                 </div>
               </div>
 
