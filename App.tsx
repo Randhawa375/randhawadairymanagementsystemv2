@@ -34,17 +34,7 @@ const App: React.FC = () => {
     return `${globalDate.getFullYear()}-${String(globalDate.getMonth() + 1).padStart(2, '0')}`;
   }, [globalDate]);
 
-  const isPastMonth = useMemo(() => {
-    const today = new Date();
-    const currentYear = today.getFullYear();
-    const currentMonth = today.getMonth();
-    const selectedYear = globalDate.getFullYear();
-    const selectedMonth = globalDate.getMonth();
 
-    if (selectedYear < currentYear) return true;
-    if (selectedYear === currentYear && selectedMonth < currentMonth) return true;
-    return false;
-  }, [globalDate]);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newContactName, setNewContactName] = useState('');
@@ -542,10 +532,6 @@ const App: React.FC = () => {
 
   const openEditModal = (contact: Contact, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (isPastMonth) {
-      alert("گزشتہ مہینے کے ریکارڈ میں تبدیلی ممکن نہیں ہے۔");
-      return;
-    }
     setEditingContact(contact);
     setEditName(contact.name);
     setEditOpeningBalance((contact.openingBalance || 0).toString());
@@ -1481,15 +1467,13 @@ const App: React.FC = () => {
               رپورٹ
             </button>
 
-            {!isPastMonth && (
-              <button
-                onClick={() => setIsAddModalOpen(true)}
-                className={`${theme.btnColor} text-white px-8 py-4 rounded-2xl font-black text-sm flex items-center gap-2 shadow-xl active:scale-95 transition-all hover:brightness-110`}
-              >
-                <Plus size={20} />
-                نیا {theme.personLabel}
-              </button>
-            )}
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className={`${theme.btnColor} text-white px-8 py-4 rounded-2xl font-black text-sm flex items-center gap-2 shadow-xl active:scale-95 transition-all hover:brightness-110`}
+            >
+              <Plus size={20} />
+              نیا {theme.personLabel}
+            </button>
           </div>
 
         </div>
@@ -1528,14 +1512,12 @@ const App: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  {!isPastMonth && (
-                    <button
-                      onClick={(e) => openEditModal(contact, e)}
-                      className={`p-4 text-slate-300 hover:text-slate-900 rounded-xl hover:bg-slate-50 transition-colors active:scale-90`}
-                    >
-                      <Settings size={28} />
-                    </button>
-                  )}
+                  <button
+                    onClick={(e) => openEditModal(contact, e)}
+                    className={`p-4 text-slate-300 hover:text-slate-900 rounded-xl hover:bg-slate-50 transition-colors active:scale-90`}
+                  >
+                    <Settings size={28} />
+                  </button>
                 </div>
               );
             })
