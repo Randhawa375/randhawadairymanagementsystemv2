@@ -191,9 +191,24 @@ const App: React.FC = () => {
     const currentMonthEndPrefix = `${monthPrefix}-31`; // Simple upper bound for string comparison
 
     const calculateMonthlyBalanceOnly = (c: Contact) => {
-      // Logic for ISOLATED MONTHLY BALANCE + MANUAL OPENING BALANCE
-      // We include openingBalance (manual entry) but ignore calculated past history.
-      const opening = c.openingBalance || 0;
+      // Logic for ISOLATED MONTHLY BALANCE + SMART OPENING BALANCE
+      // Only include Manual Opening Balance if we are in the Creation Month (or earlier).
+      // If we are in a future month, start fresh (0).
+
+      let opening = 0;
+      if (c.createdAt) {
+        const createdDate = new Date(c.createdAt);
+        const createdMonthPrefix = `${createdDate.getFullYear()}-${String(createdDate.getMonth() + 1).padStart(2, '0')}`;
+        // If selected month <= created month, include opening.
+        if (monthPrefix <= createdMonthPrefix) {
+          opening = c.openingBalance || 0;
+        }
+      } else {
+        // Fallback for old records without createdAt? Assume current month is "after" if it's not the first ever month? 
+        // Safest: Include it? Or Exclude? 
+        // Let's assume include it to be safe, user can edit it to 0 if needed.
+        opening = c.openingBalance || 0;
+      }
 
       const totalBill = c.records
         .filter(r => r.date.startsWith(monthPrefix))

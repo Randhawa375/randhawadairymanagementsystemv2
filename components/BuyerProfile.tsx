@@ -337,9 +337,19 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
   }, [buyer.payments, currentMonthPrefix]);
 
   const previousBalance = useMemo(() => {
-    // Return Manual Opening Balance Only
-    return buyer.openingBalance || 0;
-  }, [buyer, selectedMonthDate]);
+    // Smart Opening Balance: Only show in creation month or earlier.
+    if (!buyer.createdAt) return buyer.openingBalance || 0;
+
+    const createdDate = new Date(buyer.createdAt);
+    const createdMonthPrefix = `${createdDate.getFullYear()}-${String(createdDate.getMonth() + 1).padStart(2, '0')}`;
+
+    // We use currentMonthPrefix from hooks (selected month)
+    if (currentMonthPrefix <= createdMonthPrefix) {
+      return buyer.openingBalance || 0;
+    } else {
+      return 0; // Hide/Exclude for future months
+    }
+  }, [buyer, currentMonthPrefix]);
 
   const monthMilk = monthRecords.reduce((sum, r) => sum + r.totalQuantity, 0);
   const monthBill = monthRecords.reduce((sum, r) => sum + r.totalPrice, 0);
