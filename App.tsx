@@ -568,7 +568,20 @@ const App: React.FC = () => {
 
   const handleSaveEdit = async () => {
     if (!editingContact || !editName.trim()) return;
-    const updated = { ...editingContact, name: editName, openingBalance: parseFloat(editOpeningBalance) || 0 };
+
+    // Check if opening balance changed
+    const newOpeningBalance = parseFloat(editOpeningBalance) || 0;
+    const oldOpeningBalance = editingContact.openingBalance || 0;
+    const balanceChanged = newOpeningBalance !== oldOpeningBalance;
+
+    const updated = {
+      ...editingContact,
+      name: editName,
+      openingBalance: newOpeningBalance,
+      // If balance changed, update createdAt to NOW so it appears in current month
+      createdAt: balanceChanged ? Date.now() : editingContact.createdAt
+    };
+
     await handleUpdateContact(updated);
     setIsEditModalOpen(false);
     setEditingContact(null);
