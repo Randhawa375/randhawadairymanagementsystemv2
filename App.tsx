@@ -485,8 +485,21 @@ const App: React.FC = () => {
   const calculateMonthlyBalance = (contact: Contact) => {
     // This function is for the contact list card view. 
     // Changing to ISOLATED MONTHLY BALANCE as per user request.
-    // INCLUDES Manual Opening Balance now.
-    const opening = contact.openingBalance || 0;
+    // INCLUDES Smart Opening Balance check.
+
+    let opening = 0;
+    if (contact.createdAt) {
+      const createdDate = new Date(contact.createdAt);
+      const createdMonthPrefix = `${createdDate.getFullYear()}-${String(createdDate.getMonth() + 1).padStart(2, '0')}`;
+
+      // If selected month <= created month, include opening.
+      // (Using current monthPrefix from scope)
+      if (monthPrefix <= createdMonthPrefix) {
+        opening = contact.openingBalance || 0;
+      }
+    } else {
+      opening = contact.openingBalance || 0;
+    }
 
     const totalBill = contact.records
       .filter(r => r.date.startsWith(monthPrefix))
