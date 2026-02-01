@@ -190,22 +190,22 @@ const App: React.FC = () => {
     // Calculate Receivables List (Sales)
     const currentMonthEndPrefix = `${monthPrefix}-31`; // Simple upper bound for string comparison
 
-    const calculateCumulativeBalance = (c: Contact) => {
-      const opening = c.openingBalance || 0;
-
+    const calculateMonthlyBalanceOnly = (c: Contact) => {
+      // Logic for ISOLATED MONTHLY BALANCE
+      // Ignore openingBalance and past history.
       const totalBill = c.records
-        .filter(r => r.date <= currentMonthEndPrefix)
+        .filter(r => r.date.startsWith(monthPrefix))
         .reduce((sum, r) => sum + r.totalPrice, 0);
 
       const totalPaid = (c.payments || [])
-        .filter(p => p.date <= currentMonthEndPrefix)
+        .filter(p => p.date.startsWith(monthPrefix))
         .reduce((sum, p) => sum + p.amount, 0);
 
-      return opening + totalBill - totalPaid;
+      return totalBill - totalPaid;
     };
 
     const rList = dashboardData.sales.map(c => {
-      const balance = calculateCumulativeBalance(c);
+      const balance = calculateMonthlyBalanceOnly(c);
       return { ...c, balance };
     }).filter(c => c.balance > 0);
 
@@ -213,7 +213,7 @@ const App: React.FC = () => {
 
     // Calculate Payables List (Purchases)
     const payList = dashboardData.purchases.map(c => {
-      const balance = calculateCumulativeBalance(c);
+      const balance = calculateMonthlyBalanceOnly(c);
       return { ...c, balance };
     }).filter(c => c.balance > 0);
 
@@ -467,21 +467,18 @@ const App: React.FC = () => {
 
   const calculateMonthlyBalance = (contact: Contact) => {
     // This function is for the contact list card view. 
-    // It creates the small badge showing "Balance: X".
-    // Should this be Monthly or Cumulative?
-    // Users generally want to know Total Outstanding when looking at the list.
-    const opening = contact.openingBalance || 0;
-    const currentMonthEndPrefix = `${monthPrefix}-31`;
+    // Changing to ISOLATED MONTHLY BALANCE as per user request.
+    // const opening = contact.openingBalance || 0; // Ignored
 
     const totalBill = contact.records
-      .filter(r => r.date <= currentMonthEndPrefix)
+      .filter(r => r.date.startsWith(monthPrefix))
       .reduce((sum, r) => sum + r.totalPrice, 0);
 
     const totalPaid = (contact.payments || [])
-      .filter(p => p.date <= currentMonthEndPrefix)
+      .filter(p => p.date.startsWith(monthPrefix))
       .reduce((sum, p) => sum + p.amount, 0);
 
-    return opening + totalBill - totalPaid;
+    return totalBill - totalPaid;
   };
 
   const handleSelectModule = (type: ModuleType) => {
