@@ -191,34 +191,20 @@ const App: React.FC = () => {
     const currentMonthEndPrefix = `${monthPrefix}-31`; // Simple upper bound for string comparison
 
     const calculateMonthlyBalanceOnly = (c: Contact) => {
-      // Logic for ISOLATED MONTHLY BALANCE + SMART OPENING BALANCE
-      // Only include Manual Opening Balance if we are in the Creation Month (or earlier).
-      // If we are in a future month, start fresh (0).
+      // CUMULATIVE BALANCE LOGIC
+      // Balance = Opening + Sum(All Records up to Month End) - Sum(All Payments up to Month End)
 
-      let opening = 0;
-      if (c.createdAt) {
-        const createdDate = new Date(c.createdAt);
-        const createdMonthPrefix = `${createdDate.getFullYear()}-${String(createdDate.getMonth() + 1).padStart(2, '0')}`;
-        // If selected month <= created month, include opening.
-        if (monthPrefix <= createdMonthPrefix) {
-          opening = c.openingBalance || 0;
-        }
-      } else {
-        // Fallback for old records without createdAt? Assume current month is "after" if it's not the first ever month? 
-        // Safest: Include it? Or Exclude? 
-        // Let's assume include it to be safe, user can edit it to 0 if needed.
-        opening = c.openingBalance || 0;
-      }
+      const currentMonthEndPrefix = `${monthPrefix}-31`;
 
       const totalBill = c.records
-        .filter(r => r.date.startsWith(monthPrefix))
+        .filter(r => r.date <= currentMonthEndPrefix)
         .reduce((sum, r) => sum + r.totalPrice, 0);
 
       const totalPaid = (c.payments || [])
-        .filter(p => p.date.startsWith(monthPrefix))
+        .filter(p => p.date <= currentMonthEndPrefix)
         .reduce((sum, p) => sum + p.amount, 0);
 
-      return opening + totalBill - totalPaid;
+      return (c.openingBalance || 0) + totalBill - totalPaid;
     };
 
     const rList = dashboardData.sales.map(c => {
@@ -483,33 +469,22 @@ const App: React.FC = () => {
 
 
   const calculateMonthlyBalance = (contact: Contact) => {
-    // This function is for the contact list card view. 
-    // Changing to ISOLATED MONTHLY BALANCE as per user request.
-    // INCLUDES Smart Opening Balance check.
+    // CUMULATIVE BALANCE (For Contact List Card)
+    // Opening + Sum(All Records up to chosen month end) - Sum(All Payments up to chosen month end)
 
-    let opening = 0;
-    if (contact.createdAt) {
-      const createdDate = new Date(contact.createdAt);
-      const createdMonthPrefix = `${createdDate.getFullYear()}-${String(createdDate.getMonth() + 1).padStart(2, '0')}`;
-
-      // If selected month <= created month, include opening.
-      // (Using current monthPrefix from scope)
-      if (monthPrefix <= createdMonthPrefix) {
-        opening = contact.openingBalance || 0;
-      }
-    } else {
-      opening = contact.openingBalance || 0;
-    }
+    // We use monthPrefix (Global Date) to determine "up to when" we show the balance.
+    // If user is viewing "Feb 2024", we show balance as of end of Feb 2024.
+    const currentMonthEndPrefix = `${monthPrefix}-31`;
 
     const totalBill = contact.records
-      .filter(r => r.date.startsWith(monthPrefix))
+      .filter(r => r.date <= currentMonthEndPrefix)
       .reduce((sum, r) => sum + r.totalPrice, 0);
 
     const totalPaid = (contact.payments || [])
-      .filter(p => p.date.startsWith(monthPrefix))
+      .filter(p => p.date <= currentMonthEndPrefix)
       .reduce((sum, p) => sum + p.amount, 0);
 
-    return opening + totalBill - totalPaid;
+    return (contact.openingBalance || 0) + totalBill - totalPaid;
   };
 
   const handleSelectModule = (type: ModuleType) => {
@@ -568,20 +543,7 @@ const App: React.FC = () => {
 
   const handleSaveEdit = async () => {
     if (!editingContact || !editName.trim()) return;
-
-    // Check if opening balance changed
-    const newOpeningBalance = parseFloat(editOpeningBalance) || 0;
-    const oldOpeningBalance = editingContact.openingBalance || 0;
-    const balanceChanged = newOpeningBalance !== oldOpeningBalance;
-
-    const updated = {
-      ...editingContact,
-      name: editName,
-      openingBalance: newOpeningBalance,
-      // If balance changed, update createdAt to NOW so it appears in current month
-      createdAt: balanceChanged ? Date.now() : editingContact.createdAt
-    };
-
+    const updated = { ...editingContact, name: editName, openingBalance: parseFloat(editOpeningBalance) || 0 };
     await handleUpdateContact(updated);
     setIsEditModalOpen(false);
     setEditingContact(null);

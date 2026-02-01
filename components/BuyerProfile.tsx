@@ -337,18 +337,23 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
   }, [buyer.payments, currentMonthPrefix]);
 
   const previousBalance = useMemo(() => {
-    // Smart Opening Balance: Only show in creation month or earlier.
-    if (!buyer.createdAt) return buyer.openingBalance || 0;
+    // CUMULATIVE PREVIOUS BALANCE
+    // Opening Balance + All Past Transactions (Strictly Before Selected Month)
 
-    const createdDate = new Date(buyer.createdAt);
-    const createdMonthPrefix = `${createdDate.getFullYear()}-${String(createdDate.getMonth() + 1).padStart(2, '0')}`;
+    // 1. Global Opening Balance (Initial Debt)
+    const initialBalance = buyer.openingBalance || 0;
 
-    // We use currentMonthPrefix from hooks (selected month)
-    if (currentMonthPrefix <= createdMonthPrefix) {
-      return buyer.openingBalance || 0;
-    } else {
-      return 0; // Hide/Exclude for future months
-    }
+    // 2. Past Bill (Records before current month)
+    const pastBill = buyer.records
+      .filter(r => r.date < `${currentMonthPrefix}-01`)
+      .reduce((sum, r) => sum + r.totalPrice, 0);
+
+    // 3. Past Paid (Payments before current month)
+    const pastPaid = (buyer.payments || [])
+      .filter(p => p.date < `${currentMonthPrefix}-01`)
+      .reduce((sum, p) => sum + p.amount, 0);
+
+    return initialBalance + pastBill - pastPaid;
   }, [buyer, currentMonthPrefix]);
 
   const monthMilk = monthRecords.reduce((sum, r) => sum + r.totalQuantity, 0);
