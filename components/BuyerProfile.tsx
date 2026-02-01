@@ -337,8 +337,8 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
   }, [buyer.payments, currentMonthPrefix]);
 
   const previousBalance = useMemo(() => {
-    // User requested to hide/ignore previous balance.
-    return 0;
+    // Return Manual Opening Balance Only
+    return buyer.openingBalance || 0;
   }, [buyer, selectedMonthDate]);
 
   const monthMilk = monthRecords.reduce((sum, r) => sum + r.totalQuantity, 0);
@@ -458,10 +458,10 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
 
       let printQueue: any[] = [];
 
-      // Add Previous Balance Row (Special) - REMOVED for monthly isolation
-      // if (previousBalance !== 0) {
-      //   printQueue.push({ type: 'PREV_BAL', balance: previousBalance });
-      // }
+      // Add Previous Balance Row (Manual Opening Balance)
+      if (previousBalance !== 0) {
+        printQueue.push({ type: 'PREV_BAL', balance: previousBalance });
+      }
 
       // Add Milk Rows
       recordsToPrint.forEach(r => printQueue.push({ type: 'MILK', data: r }));
@@ -960,8 +960,8 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
               </div>
 
               {/* Previous Balance Banner */}
-              {/* Previous Balance Banner - HIDDEN by Request */}
-              {/* {!isEditingRate && previousBalance !== 0 && (
+              {/* Previous Balance Banner - Manual Opening Balance */}
+              {!isEditingRate && previousBalance !== 0 && (
                 <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
                   <span className={`text-xs font-black uppercase tracking-widest px-3 py-1 rounded-full ${previousBalance > 0 ? (isSale ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700') : 'bg-slate-100 text-slate-500'}`}>
                     {previousBalance > 0 ? 'سابقہ وصولی (Receivable)' : 'سابقہ واجب الادا (Payable)'}
@@ -973,7 +973,7 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
                     </p>
                   </div>
                 </div>
-              )} */}
+              )}
             </div>
 
             <div className="px-5 pb-8">

@@ -191,8 +191,10 @@ const App: React.FC = () => {
     const currentMonthEndPrefix = `${monthPrefix}-31`; // Simple upper bound for string comparison
 
     const calculateMonthlyBalanceOnly = (c: Contact) => {
-      // Logic for ISOLATED MONTHLY BALANCE
-      // Ignore openingBalance and past history.
+      // Logic for ISOLATED MONTHLY BALANCE + MANUAL OPENING BALANCE
+      // We include openingBalance (manual entry) but ignore calculated past history.
+      const opening = c.openingBalance || 0;
+
       const totalBill = c.records
         .filter(r => r.date.startsWith(monthPrefix))
         .reduce((sum, r) => sum + r.totalPrice, 0);
@@ -201,7 +203,7 @@ const App: React.FC = () => {
         .filter(p => p.date.startsWith(monthPrefix))
         .reduce((sum, p) => sum + p.amount, 0);
 
-      return totalBill - totalPaid;
+      return opening + totalBill - totalPaid;
     };
 
     const rList = dashboardData.sales.map(c => {
@@ -468,7 +470,8 @@ const App: React.FC = () => {
   const calculateMonthlyBalance = (contact: Contact) => {
     // This function is for the contact list card view. 
     // Changing to ISOLATED MONTHLY BALANCE as per user request.
-    // const opening = contact.openingBalance || 0; // Ignored
+    // INCLUDES Manual Opening Balance now.
+    const opening = contact.openingBalance || 0;
 
     const totalBill = contact.records
       .filter(r => r.date.startsWith(monthPrefix))
@@ -478,7 +481,7 @@ const App: React.FC = () => {
       .filter(p => p.date.startsWith(monthPrefix))
       .reduce((sum, p) => sum + p.amount, 0);
 
-    return totalBill - totalPaid;
+    return opening + totalBill - totalPaid;
   };
 
   const handleSelectModule = (type: ModuleType) => {
