@@ -37,6 +37,7 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
   const [isAddingPayment, setIsAddingPayment] = useState(false);
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentDate, setPaymentDate] = useState('');
   const [paymentDescription, setPaymentDescription] = useState('');
   const [activeTab, setActiveTab] = useState<'LEDGER' | 'PAYMENTS'>('LEDGER');
   const [uploadingDate, setUploadingDate] = useState<string | null>(null);
@@ -255,7 +256,7 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
       paymentToSave = {
         id: uuidv4(),
         amount,
-        date: new Date().toISOString().split('T')[0],
+        date: paymentDate || new Date().toISOString().split('T')[0], // Use selected date
         description: paymentDescription.trim() || undefined,
         timestamp: Date.now()
       };
@@ -283,14 +284,34 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
   const resetPaymentForm = () => {
     setPaymentAmount('');
     setPaymentDescription('');
+    setPaymentDate('');
     setEditingPaymentId(null);
     setIsAddingPayment(false);
+  };
+
+  const handleAddPayment = () => {
+    // Default Date Logic
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth();
+
+    const selectedYear = selectedMonthDate.getFullYear();
+    const selectedMonth = selectedMonthDate.getMonth();
+
+    if (selectedYear === currentYear && selectedMonth === currentMonth) {
+      setPaymentDate(today.toISOString().split('T')[0]);
+    } else {
+      // Default to 1st of selected month if viewing past/future
+      setPaymentDate(`${currentMonthPrefix}-01`);
+    }
+    setIsAddingPayment(true);
   };
 
   const handleEditPayment = (payment: Payment) => {
     setEditingPaymentId(payment.id);
     setPaymentAmount(payment.amount.toString());
     setPaymentDescription(payment.description || '');
+    setPaymentDate(payment.date);
     setIsAddingPayment(true);
   };
 
@@ -1031,7 +1052,7 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
             <div className="flex justify-between items-center mb-8">
               <h3 className="text-lg font-black text-slate-900">پیمنٹ کا ریکارڈ</h3>
               <button
-                onClick={() => setIsAddingPayment(true)}
+                onClick={handleAddPayment}
                 className={`${btnClass} text-white px-6 py-3 rounded-2xl font-black text-sm flex items-center gap-2 shadow-xl hover:brightness-110 active:scale-95 transition-all`}
               >
                 <Plus size={18} /> نئی انٹری
@@ -1134,6 +1155,16 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
             </h3>
 
             <div className="space-y-6">
+              <div>
+                <p className="text-right text-[11px] font-black text-slate-400 mb-2 uppercase tracking-widest mr-2">تاریخ</p>
+                <input
+                  type="date"
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                  className="w-full p-4 bg-slate-50 text-slate-900 rounded-xl text-right font-black outline-none border-2 border-slate-100 focus:bg-white focus:border-emerald-500 transition-all shadow-inner"
+                />
+              </div>
+
               <div>
                 <p className="text-right text-[11px] font-black text-slate-400 mb-2 uppercase tracking-widest mr-2">رقم (روپے)</p>
                 <input
