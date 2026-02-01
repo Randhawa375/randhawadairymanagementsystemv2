@@ -55,17 +55,7 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
     return `${selectedMonthDate.getFullYear()}-${String(selectedMonthDate.getMonth() + 1).padStart(2, '0')}`;
   }, [selectedMonthDate]);
 
-  const isPastMonth = useMemo(() => {
-    const today = new Date();
-    const currentYear = today.getFullYear();
-    const currentMonth = today.getMonth();
-    const selectedYear = selectedMonthDate.getFullYear();
-    const selectedMonth = selectedMonthDate.getMonth();
 
-    if (selectedYear < currentYear) return true;
-    if (selectedYear === currentYear && selectedMonth < currentMonth) return true;
-    return false;
-  }, [selectedMonthDate]);
 
   const daysInMonth = useMemo(() => {
     const year = selectedMonthDate.getFullYear();
@@ -77,7 +67,6 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
   }, [selectedMonthDate]);
 
   const handleRecordUpdate = async (dateStr: string, field: 'morning' | 'evening', value: string) => {
-    if (isPastMonth) return;
     let val = parseFloat(value) || 0;
     const updatedRecords = [...buyer.records];
     const index = updatedRecords.findIndex(r => r.date === dateStr);
@@ -136,7 +125,6 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
   };
 
   const handleDeleteImage = async (dateStr: string, imageUrl: string) => {
-    if (isPastMonth) return;
     if (!window.confirm("کیا آپ واقعی یہ تصویر حذف کرنا چاہتے ہیں؟")) return;
 
     const updatedRecords = [...buyer.records];
@@ -252,7 +240,6 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
   };
 
   const handleSavePayment = async () => {
-    if (isPastMonth) return;
     const amount = parseFloat(paymentAmount);
     if (isNaN(amount) || amount <= 0) return;
 
@@ -301,10 +288,6 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
   };
 
   const handleEditPayment = (payment: Payment) => {
-    if (isPastMonth) {
-      alert("پرانے مہینے کی پیمنٹ تبدیل نہیں کی جا سکتی۔");
-      return;
-    }
     setEditingPaymentId(payment.id);
     setPaymentAmount(payment.amount.toString());
     setPaymentDescription(payment.description || '');
@@ -312,10 +295,6 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
   };
 
   const handleDeletePayment = async (id: string) => {
-    if (isPastMonth) {
-      alert("پرانے مہینے کا ریکارڈ حذف نہیں کیا جا سکتا۔");
-      return;
-    }
     if (!window.confirm('کیا آپ یہ پیمنٹ ڈیلیٹ کرنا چاہتے ہیں؟')) return;
 
     const updatedPayments = (buyer.payments || []).filter(p => p.id !== id);
@@ -918,14 +897,12 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {!isPastMonth && (
-            <button
-              onClick={handleCameraClick}
-              className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm border border-slate-100 active:scale-95 transition-all ${isSale ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}
-            >
-              <Camera size={24} />
-            </button>
-          )}
+          <button
+            onClick={handleCameraClick}
+            className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm border border-slate-100 active:scale-95 transition-all ${isSale ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}
+          >
+            <Camera size={24} />
+          </button>
           <div className={`w-12 h-12 ${bgSoftClass} rounded-2xl flex items-center justify-center shadow-inner border border-white/50`}>
             {isSale ? <DollarSign className={colorClass} size={26} /> : <Wallet className={colorClass} size={26} />}
           </div>
@@ -953,7 +930,7 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
           <>
             <div className="bg-white p-6 mx-5 mt-6 rounded-2xl border border-slate-100 shadow-sm mb-6">
               <div className="flex items-center justify-between">
-                {isEditingRate && !isPastMonth ? (
+                {isEditingRate ? (
                   <div className="flex items-center gap-4 w-full">
                     <input type="number" value={tempRate} onChange={(e) => setTempRate(e.target.value)} className="bg-slate-50 p-3 rounded-xl w-28 text-center font-black text-lg outline-none border-2 border-slate-200 focus:border-emerald-500" autoFocus />
                     <button onClick={handleSaveRate} className={`${btnClass} text-white p-3.5 rounded-xl shadow-lg active:scale-95 transition-all`}><Save size={24} /></button>
@@ -965,9 +942,7 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
                       <p className="text-slate-400 text-xs font-black uppercase tracking-widest mb-1">قیمت فی لیٹر</p>
                       <p className={`text-2xl font-black ${colorClass}`}>{buyer.pricePerLiter} <span className="text-sm font-normal text-slate-400">روپے</span></p>
                     </div>
-                    {!isPastMonth && (
-                      <button onClick={() => setIsEditingRate(true)} className={`flex items-center gap-2 text-xs font-black bg-slate-100 text-slate-600 px-6 py-3 rounded-2xl hover:bg-slate-200 transition-all shadow-sm`}><Edit2 size={16} /> ریٹ تبدیل</button>
-                    )}
+                    <button onClick={() => setIsEditingRate(true)} className={`flex items-center gap-2 text-xs font-black bg-slate-100 text-slate-600 px-6 py-3 rounded-2xl hover:bg-slate-200 transition-all shadow-sm`}><Edit2 size={16} /> ریٹ تبدیل</button>
                   </>
                 )}
               </div>
@@ -1017,7 +992,6 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
                         <td className="p-2 border-y border-slate-50">
                           <input
                             type="number"
-                            disabled={isPastMonth}
                             value={record?.morningQuantity || ''}
                             placeholder="0"
                             onChange={(e) => {
@@ -1030,7 +1004,6 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
                         <td className="p-2 border-y border-slate-50">
                           <input
                             type="number"
-                            disabled={isPastMonth}
                             value={record?.eveningQuantity || ''}
                             placeholder="0"
                             onChange={(e) => handleRecordUpdate(dateStr, 'evening', e.target.value)}
@@ -1065,14 +1038,12 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
           <div className="p-6">
             <div className="flex justify-between items-center mb-8">
               <h3 className="text-lg font-black text-slate-900">پیمنٹ کا ریکارڈ</h3>
-              {!isPastMonth && (
-                <button
-                  onClick={() => setIsAddingPayment(true)}
-                  className={`${btnClass} text-white px-6 py-3 rounded-2xl font-black text-sm flex items-center gap-2 shadow-xl hover:brightness-110 active:scale-95 transition-all`}
-                >
-                  <Plus size={18} /> نئی انٹری
-                </button>
-              )}
+              <button
+                onClick={() => setIsAddingPayment(true)}
+                className={`${btnClass} text-white px-6 py-3 rounded-2xl font-black text-sm flex items-center gap-2 shadow-xl hover:brightness-110 active:scale-95 transition-all`}
+              >
+                <Plus size={18} /> نئی انٹری
+              </button>
             </div>
 
             <div className="space-y-4">
@@ -1098,12 +1069,10 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
                         )}
                       </div>
                     </div>
-                    {!isPastMonth && (
-                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => handleEditPayment(p)} className="p-2.5 text-slate-300 hover:text-slate-900 transition-all"><Edit2 size={20} /></button>
-                        <button onClick={() => handleDeletePayment(p.id)} className="p-2.5 text-rose-300 hover:text-rose-600 transition-all"><Trash2 size={20} /></button>
-                      </div>
-                    )}
+                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => handleEditPayment(p)} className="p-2.5 text-slate-300 hover:text-slate-900 transition-all"><Edit2 size={20} /></button>
+                      <button onClick={() => handleDeletePayment(p.id)} className="p-2.5 text-rose-300 hover:text-rose-600 transition-all"><Trash2 size={20} /></button>
+                    </div>
                   </div>
                 ))
               )}
@@ -1224,28 +1193,24 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
           <div className="w-full max-w-4xl p-4 overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-6 text-white px-2">
               <h3 className="text-xl font-bold font-mono">{formatUrduDate(viewingImages.date)}</h3>
-              {!isPastMonth && (
-                <button
-                  onClick={() => triggerUpload(viewingImages.date)}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-black flex items-center gap-2 transition-all"
-                >
-                  <Plus size={18} /> اور تصویر
-                </button>
-              )}
+              <button
+                onClick={() => triggerUpload(viewingImages.date)}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-black flex items-center gap-2 transition-all"
+              >
+                <Plus size={18} /> اور تصویر
+              </button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {viewingImages.urls.map((url, idx) => (
                 <div key={idx} className="relative group rounded-2xl overflow-hidden border-2 border-white/10">
                   <img src={url} alt={`Receipt ${idx + 1}`} className="w-full h-auto object-cover" />
-                  {!isPastMonth && (
-                    <button
-                      onClick={() => handleDeleteImage(viewingImages.date, url)}
-                      className="absolute top-3 right-3 bg-rose-600 text-white p-2 rounded-xl shadow-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-rose-700"
-                    >
-                      <Trash2 size={20} />
-                    </button>
-                  )}
+                  <button
+                    onClick={() => handleDeleteImage(viewingImages.date, url)}
+                    className="absolute top-3 right-3 bg-rose-600 text-white p-2 rounded-xl shadow-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-rose-700"
+                  >
+                    <Trash2 size={20} />
+                  </button>
                   <div className="absolute bottom-2 left-3 bg-black/50 text-white text-[10px] px-2 py-1 rounded-md backdrop-blur-sm">
                     Image {idx + 1}
                   </div>
@@ -1253,17 +1218,15 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
               ))}
 
               {/* Add Button Tile */}
-              {!isPastMonth && (
-                <button
-                  onClick={() => triggerUpload(viewingImages.date)}
-                  className="aspect-square rounded-2xl border-2 border-dashed border-white/20 hover:border-emerald-500/50 hover:bg-emerald-500/10 transition-all flex flex-col items-center justify-center gap-2 group"
-                >
-                  <div className="p-4 bg-white/5 rounded-full group-hover:bg-emerald-500 group-hover:text-white transition-colors text-white/50">
-                    <Plus size={32} />
-                  </div>
-                  <span className="text-white/50 text-xs font-black uppercase tracking-widest group-hover:text-emerald-400">Add New</span>
-                </button>
-              )}
+              <button
+                onClick={() => triggerUpload(viewingImages.date)}
+                className="aspect-square rounded-2xl border-2 border-dashed border-white/20 hover:border-emerald-500/50 hover:bg-emerald-500/10 transition-all flex flex-col items-center justify-center gap-2 group"
+              >
+                <div className="p-4 bg-white/5 rounded-full group-hover:bg-emerald-500 group-hover:text-white transition-colors text-white/50">
+                  <Plus size={32} />
+                </div>
+                <span className="text-white/50 text-xs font-black uppercase tracking-widest group-hover:text-emerald-400">Add New</span>
+              </button>
             </div>
           </div>
         </div>
