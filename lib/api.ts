@@ -42,7 +42,7 @@ const mapFarmRecord = (data: any): FarmRecord => ({
     morningQuantity: Number(data.morning_quantity),
     eveningQuantity: Number(data.evening_quantity),
     totalQuantity: Number(data.total_quantity),
-    openingStock: data.opening_stock ? Number(data.opening_stock) : 0,
+    openingStock: (data.opening_stock !== null && data.opening_stock !== undefined) ? Number(data.opening_stock) : undefined,
     imageUrl: data.image_url,
     images: data.images || (data.image_url ? [data.image_url] : []),
     timestamp: new Date(data.created_at).getTime(),
@@ -311,7 +311,7 @@ export const api = {
             payload.user_id = user.id;
             payload.date = record.date;
             // Default: if undefined, set to 0. If null, set to null (auto)
-            if (payload.opening_stock === undefined) payload.opening_stock = 0;
+            // if (payload.opening_stock === undefined) payload.opening_stock = 0; // REMOVED to allow NULL (Auto)
 
             const { error } = await supabase.from('farm_records').insert(payload);
             if (error) throw error;
