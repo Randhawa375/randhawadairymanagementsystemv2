@@ -399,7 +399,7 @@ const App: React.FC = () => {
   // Derived Totals for UI
   const totalAvailable = (dailyStats.openingStock !== undefined && dailyStats.openingStock !== null)
     ? dailyStats.openingStock + dailyStats.farm + dailyStats.purchase
-    : dailyStats.farm + dailyStats.purchase;
+    : dailyStats.prevStock + dailyStats.farm + dailyStats.purchase;
 
   const netRemaining = totalAvailable - dailyStats.sale;
 
