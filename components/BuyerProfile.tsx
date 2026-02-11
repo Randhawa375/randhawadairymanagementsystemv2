@@ -23,6 +23,10 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isGeneratingPaymentPDF, setIsGeneratingPaymentPDF] = useState(false);
 
+  // State for Daily Rate Editing
+  const [editingDailyRateDate, setEditingDailyRateDate] = useState<string | null>(null);
+  const [tempDailyRate, setTempDailyRate] = useState('');
+
   // Debounce Refs
   const saveTimeoutsRef = React.useRef<{ [key: string]: NodeJS.Timeout }>({});
 
@@ -927,6 +931,43 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
     }
   };
 
+  const handleSaveDailyRate = async () => {
+    if (!editingDailyRateDate) return;
+    const newRate = parseFloat(tempDailyRate);
+    if (isNaN(newRate) || newRate < 0) return;
+
+    // Update only the specific record
+    const updatedRecords = buyer.records.map(r => {
+      if (r.date === editingDailyRateDate) {
+        const newPrice = Math.round(r.totalQuantity * newRate);
+        return {
+          ...r,
+          pricePerLiter: newRate,
+          totalPrice: newPrice
+        };
+      }
+      return r;
+    });
+
+    onUpdateBuyer({
+      ...buyer,
+      records: updatedRecords
+    });
+
+    setEditingDailyRateDate(null);
+
+    // Persist to DB
+    const rec = updatedRecords.find(r => r.date === editingDailyRateDate);
+    if (rec) {
+      try {
+        await api.addRecord(buyer.id, rec);
+      } catch (e) {
+        console.error("Failed to update daily rate", e);
+        alert("ڈیلی ریٹ محفوظ نہیں ہو سکا۔");
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50/50 fade-in flex flex-col">
       <input
@@ -1038,9 +1079,15 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
                           {record && record.totalPrice > 0 && (
                             <div className={`text-[10px] font-black ${colorClass}`}>
                               {record.totalPrice.toLocaleString()} PKR
-                              <span className="text-slate-400 font-normal ml-1">
+                              <button
+                                onClick={() => {
+                                  setEditingDailyRateDate(dateStr);
+                                  setTempDailyRate((record.pricePerLiter || (record.totalQuantity ? Math.round(record.totalPrice / record.totalQuantity) : buyer.pricePerLiter)).toString());
+                                }}
+                                className="text-slate-400 font-normal ml-1 hover:text-blue-600 hover:bg-blue-50 px-1 rounded transition-colors"
+                              >
                                 (@ {record.pricePerLiter || (record.totalQuantity ? Math.round(record.totalPrice / record.totalQuantity) : buyer.pricePerLiter)})
-                              </span>
+                              </button>
                             </div>
                           )}
                         </td>
@@ -1236,6 +1283,40 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
               </button>
               <button onClick={resetPaymentForm} className="bg-slate-100 text-slate-600 px-6 py-5 rounded-2xl font-black text-base active:scale-95 transition-all">
                 کینسل
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Daily Rate Override Modal */}
+      {editingDailyRateDate && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-md z-[60] flex items-center justify-center p-8 fade-in">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-10 shadow-2xl relative border-t-8 border-blue-600">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-black text-slate-900 tracking-tight">ریٹ تبدیل کریں</h3>
+              <button onClick={() => setEditingDailyRateDate(null)} className="text-slate-400 p-2 hover:bg-slate-50 rounded-full"><X size={20} /></button>
+            </div>
+            <p className="text-right text-xs font-bold text-slate-500 mb-4">{formatUrduDate(editingDailyRateDate)}</p>
+
+            <div className="space-y-4">
+              <div>
+                <p className="text-right text-[11px] font-black text-slate-400 mb-2 uppercase tracking-widest mr-2">نیا ریٹ (فی لیٹر)</p>
+                <input
+                  type="number"
+                  value={tempDailyRate}
+                  onChange={(e) => setTempDailyRate(e.target.value)}
+                  className="w-full p-6 bg-slate-50 text-slate-900 rounded-2xl text-right text-4xl font-black outline-none border-2 border-slate-100 focus:bg-white focus:border-blue-500 transition-all shadow-inner"
+                  placeholder="0"
+                  autoFocus
+                  onKeyDown={(e) => e.key === 'Enter' && handleSaveDailyRate()}
+                />
+              </div>
+              <button
+                onClick={handleSaveDailyRate}
+                className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-all mt-4"
+              >
+                محفوظ کریں
               </button>
             </div>
           </div>
