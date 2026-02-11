@@ -263,7 +263,8 @@ const App: React.FC = () => {
   const [dailyStats, setDailyStats] = useState({ farm: 0, purchase: 0, sale: 0, prevStock: 0, openingStock: undefined as number | null | undefined });
   const [isEditingStock, setIsEditingStock] = useState(false);
   const [manualStockInput, setManualStockInput] = useState('');
-  const [dailyDetailMode, setDailyDetailMode] = useState<'SALE' | 'PURCHASE' | null>(null);
+  const [dailyDetailMode, setDailyDetailMode] = useState<'SALE' | 'PURCHASE' | 'FARM' | null>(null);
+  const [farmRecords, setFarmRecords] = useState<import('./types').FarmRecord[]>([]);
 
   useEffect(() => {
     if (viewState === 'MAIN_MENU') {
@@ -271,6 +272,7 @@ const App: React.FC = () => {
         try {
           // 1. Farm Records
           const farmRecs = await api.getFarmRecords();
+          setFarmRecords(farmRecs);
 
           // Check for today's record to get manually set opening stock
           const todayRecord = farmRecs.find(r => r.date === dailyDate);
@@ -1074,7 +1076,10 @@ const App: React.FC = () => {
                 </div>
 
                 {/* Farm */}
-                <div className="p-6 bg-gradient-to-br from-blue-50 to-white rounded-[2.5rem] border border-blue-100 shadow-sm flex flex-col items-center justify-center">
+                <div
+                  onClick={() => setDailyDetailMode('FARM')}
+                  className="p-6 bg-gradient-to-br from-blue-50 to-white rounded-[2.5rem] border border-blue-100 shadow-sm flex flex-col items-center justify-center cursor-pointer hover:shadow-md transition-all active:scale-95"
+                >
                   <div className="bg-blue-100 p-2 rounded-full mb-2">
                     <Tractor size={18} className="text-blue-600" />
                   </div>
@@ -1308,12 +1313,12 @@ const App: React.FC = () => {
                 <div className={`p-8 border-b border-slate-100 flex items-center justify-between ${dailyDetailMode === 'SALE' ? 'bg-emerald-50' : 'bg-rose-50'}`}>
                   <button onClick={() => setDailyDetailMode(null)} className="p-3 bg-white/50 hover:bg-white rounded-2xl transition-all shadow-sm active:scale-95"><X size={20} className="text-slate-500" /></button>
                   <div className="text-right">
-                    <h3 className={`text-2xl font-black ${dailyDetailMode === 'SALE' ? 'text-emerald-700' : 'text-rose-700'}`}>
-                      {dailyDetailMode === 'SALE' ? 'فروخت کی تفصیل' : 'خریداری کی تفصیل'}
+                    <h3 className={`text-2xl font-black ${dailyDetailMode === 'SALE' ? 'text-emerald-700' : (dailyDetailMode === 'PURCHASE' ? 'text-rose-700' : 'text-blue-700')}`}>
+                      {dailyDetailMode === 'SALE' ? 'فروخت کی تفصیل' : (dailyDetailMode === 'PURCHASE' ? 'خریداری کی تفصیل' : 'فارم کی پیداوار')}
                     </h3>
                     <div className="flex items-center justify-end gap-2 mt-1">
-                      <span className={`h-1.5 w-1.5 rounded-full ${dailyDetailMode === 'SALE' ? 'bg-emerald-400' : 'bg-rose-400'}`}></span>
-                      <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{dailyDate}</p>
+                      <span className={`h-1.5 w-1.5 rounded-full ${dailyDetailMode === 'SALE' ? 'bg-emerald-400' : (dailyDetailMode === 'PURCHASE' ? 'bg-rose-400' : 'bg-blue-400')}`}></span>
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{dailyDetailMode === 'FARM' ? 'تمام ریکارڈ' : dailyDate}</p>
                     </div>
                   </div>
                 </div>
@@ -1321,15 +1326,15 @@ const App: React.FC = () => {
                 {/* Modal List */}
                 <div className="max-h-[60vh] overflow-y-auto p-2 custom-scrollbar bg-slate-50/50">
                   {(() => {
-                    const sourceData = dailyDetailMode === 'SALE' ? dashboardData.sales : dashboardData.purchases;
-
-                    const list = sourceData.map(contact => {
-                      const record = contact.records.find(r => r.date === dailyDate);
-                      if (record && record.totalQuantity > 0) {
-                        return { name: contact.name, record };
-                      }
-                      return null;
-                    }).filter(item => item !== null) as { name: string, record: any }[];
+                    const list = dailyDetailMode === 'FARM'
+                      ? farmRecords.map(r => ({ name: r.date, record: r }))
+                      : (dailyDetailMode === 'SALE' ? dashboardData.sales : dashboardData.purchases).map(contact => {
+                        const record = contact.records.find(r => r.date === dailyDate);
+                        if (record && record.totalQuantity > 0) {
+                          return { name: contact.name, record };
+                        }
+                        return null;
+                      }).filter(item => item !== null) as { name: string, record: any }[];
 
                     if (list.length === 0) {
                       return (
@@ -1350,7 +1355,7 @@ const App: React.FC = () => {
                             <th className="p-3 font-bold">صبح</th>
                             <th className="p-3 font-bold text-center">شام</th>
                             <th className="p-3 font-bold text-center">کل</th>
-                            <th className="p-3 font-bold text-right">نام</th>
+                            <th className="p-3 font-bold text-right">{dailyDetailMode === 'FARM' ? 'تاریخ' : 'نام'}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1362,13 +1367,13 @@ const App: React.FC = () => {
                               <td className="p-4 bg-white text-center text-slate-500 font-medium border-y border-slate-100 group-hover:border-slate-200 shadow-sm group-hover:shadow-md transition-all">
                                 {item.record.eveningQuantity || <span className="text-slate-300">-</span>}
                               </td>
-                              <td className={`p-4 text-center font-black text-lg border-y border-slate-100 group-hover:border-slate-200 shadow-sm group-hover:shadow-md transition-all ${dailyDetailMode === 'SALE' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                              <td className={`p-4 text-center font-black text-lg border-y border-slate-100 group-hover:border-slate-200 shadow-sm group-hover:shadow-md transition-all ${dailyDetailMode === 'SALE' ? 'bg-emerald-50 text-emerald-700' : (dailyDetailMode === 'PURCHASE' ? 'bg-rose-50 text-rose-700' : 'bg-blue-50 text-blue-700')}`}>
                                 {item.record.totalQuantity}
                               </td>
                               <td className="p-4 bg-white rounded-r-2xl font-bold text-slate-700 border-y border-r border-slate-100 group-hover:border-slate-200 shadow-sm group-hover:shadow-md transition-all flex items-center justify-end gap-3">
-                                <span>{item.name}</span>
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black text-white shadow-sm ${dailyDetailMode === 'SALE' ? 'bg-gradient-to-br from-emerald-400 to-emerald-600' : 'bg-gradient-to-br from-rose-400 to-rose-600'}`}>
-                                  {item.name.charAt(0)}
+                                <span>{dailyDetailMode === 'FARM' ? (item.name.split('-')[2] + ' ' + getMonthLabel(new Date(item.name))) : item.name}</span>
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black text-white shadow-sm ${dailyDetailMode === 'SALE' ? 'bg-gradient-to-br from-emerald-400 to-emerald-600' : (dailyDetailMode === 'PURCHASE' ? 'bg-gradient-to-br from-rose-400 to-rose-600' : 'bg-gradient-to-br from-blue-400 to-blue-600')}`}>
+                                  {dailyDetailMode === 'FARM' ? <Tractor size={14} /> : item.name.charAt(0)}
                                 </div>
                               </td>
                             </tr>
@@ -1382,11 +1387,11 @@ const App: React.FC = () => {
                 {/* Modal Footer */}
                 <div className="p-6 bg-white border-t border-slate-100 text-center flex justify-between items-center">
                   <span className="text-slate-400 text-xs font-bold uppercase tracking-widest">Total Items</span>
-                  <span className={`text-xl font-black ${dailyDetailMode === 'SALE' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                    {dailyDetailMode === 'SALE' ?
+                  <span className={`text-xl font-black ${dailyDetailMode === 'SALE' ? 'text-emerald-600' : (dailyDetailMode === 'PURCHASE' ? 'text-rose-600' : 'text-blue-600')}`}>
+                    {dailyDetailMode === 'FARM' ? farmRecords.length : (dailyDetailMode === 'SALE' ?
                       dashboardData.sales.filter(c => c.records.some(r => r.date === dailyDate && r.totalQuantity > 0)).length :
                       dashboardData.purchases.filter(c => c.records.some(r => r.date === dailyDate && r.totalQuantity > 0)).length
-                    }
+                    )}
                   </span>
                 </div>
               </div>
