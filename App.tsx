@@ -90,17 +90,19 @@ const App: React.FC = () => {
     }
 
     setIsMigrating(true);
+    console.log("[App] Starting migration for legacy data...");
+    const migrationStart = performance.now();
     try {
       if (saleDataStr) {
         setMigrationStatus("فروخت کا ریکارڈ منتقل ہو رہا ہے...");
         const sales: Contact[] = JSON.parse(saleDataStr);
-        for (const contact of sales) {
+        console.log(`[App] Migrating ${sales.length} sale contacts...`);
+        for (const [idx, contact] of sales.entries()) {
+          console.log(`[App] Migrating contact ${idx + 1}/${sales.length}: ${contact.name}`);
           const newContact = await api.createContact(contact, 'SALE');
-          // Add all records
           for (const rec of contact.records) {
             await api.addRecord(newContact.id, rec);
           }
-          // Add all payments
           for (const pay of (contact.payments || [])) {
             await api.addPayment(newContact.id, pay);
           }
@@ -111,22 +113,23 @@ const App: React.FC = () => {
       if (purchaseDataStr) {
         setMigrationStatus("خریداری کا ریکارڈ منتقل ہو رہا ہے...");
         const purchases: Contact[] = JSON.parse(purchaseDataStr);
-        for (const contact of purchases) {
+        console.log(`[App] Migrating ${purchases.length} purchase contacts...`);
+        for (const [idx, contact] of purchases.entries()) {
+          console.log(`[App] Migrating contact ${idx + 1}/${purchases.length}: ${contact.name}`);
           const newContact = await api.createContact(contact, 'PURCHASE');
-          // Add all records
           for (const rec of contact.records) {
             await api.addRecord(newContact.id, rec);
           }
-          // Add all payments
           for (const pay of (contact.payments || [])) {
             await api.addPayment(newContact.id, pay);
           }
         }
         localStorage.removeItem('randhawa_purchase_v2');
       }
+      console.log(`[App] Migration complete in ${((performance.now() - migrationStart) / 1000).toFixed(2)}s`);
       alert("تمام ڈیٹا کامیابی سے محفوظ ہو گیا!");
     } catch (e) {
-      console.error(e);
+      console.error("[App] Migration failed", e);
       alert("ڈیٹا منتقلی میں مسئلہ پیش آیا۔ انٹرنیٹ چیک کریں۔");
     } finally {
       setIsMigrating(false);
@@ -157,12 +160,17 @@ const App: React.FC = () => {
     if (viewState === 'MAIN_MENU') {
       const loadDashboard = async () => {
         setDashboardLoading(true);
+        const startTime = performance.now();
+        console.log("[App] Starting dashboard data load...");
         try {
           const [s, p] = await Promise.all([
             api.getContacts('SALE'),
             api.getContacts('PURCHASE')
           ]);
+          const midTime = performance.now();
+          console.log(`[App] Data fetched in ${(midTime - startTime).toFixed(2)}ms. Updating state...`);
           setDashboardData({ sales: s, purchases: p });
+          console.log(`[App] State updated in ${(performance.now() - midTime).toFixed(2)}ms`);
         } catch (e) {
           console.error("Failed to load dashboard data", e);
         } finally {
@@ -175,69 +183,75 @@ const App: React.FC = () => {
 
   // Calculate Dashboard Stats and Lists
   const { totalSaleMonth, totalPurchaseMonth, totalProfit, totalReceivable, totalPayable, receivableList, payableList } = useMemo(() => {
+    const start = performance.now();
+    console.log("[App] Recalculating dashboard stats...");
+
     const getMonthTotal = (contactsList: Contact[]) => {
-      return contactsList.reduce((sum, c) => {
-        return sum + c.records
-          .filter(r => r.date.startsWith(monthPrefix))
-          .reduce((s, r) => s + r.totalPrice, 0);
-      }, 0);
+      let total = 0;
+      for (const c of contactsList) {
+        for (const r of c.records) {
+          if (r.date.startsWith(monthPrefix)) {
+            total += r.totalPrice;
+          }
+        }
+      }
+      return total;
     };
 
     const sTotal = getMonthTotal(dashboardData.sales);
     const pTotal = getMonthTotal(dashboardData.purchases);
 
     // Calculate Receivables List (Sales)
-    // Calculate Receivables List (Sales)
-    const currentMonthEndPrefix = `${monthPrefix}-31`; // Simple upper bound for string comparison
+    const currentMonthEndPrefix = `${monthPrefix}-31`;
 
     const calculateMonthlyBalanceOnly = (c: Contact) => {
-      // CUMULATIVE BALANCE LOGIC
-      // Balance = Opening + Sum(All Records up to Month End) - Sum(All Payments up to Month End)
+      let totalBill = 0;
+      for (const r of c.records) {
+        if (r.date <= currentMonthEndPrefix) {
+          totalBill += r.totalPrice;
+        }
+      }
 
-      const currentMonthEndPrefix = `${monthPrefix}-31`;
-
-      const totalBill = c.records
-        .filter(r => r.date <= currentMonthEndPrefix)
-        .reduce((sum, r) => sum + r.totalPrice, 0);
-
-      const totalPaid = (c.payments || [])
-        .filter(p => p.date <= currentMonthEndPrefix)
-        .reduce((sum, p) => sum + p.amount, 0);
+      let totalPaid = 0;
+      if (c.payments) {
+        for (const p of c.payments) {
+          if (p.date <= currentMonthEndPrefix) {
+            totalPaid += p.amount;
+          }
+        }
+      }
 
       return (c.openingBalance || 0) + totalBill - totalPaid;
     };
 
-    const rList = dashboardData.sales.map(c => {
+    const rList: (Contact & { balance: number })[] = [];
+    let rTotal = 0;
+    for (const c of dashboardData.sales) {
       const balance = calculateMonthlyBalanceOnly(c);
-      return { ...c, balance };
-    }).filter(c => c.balance > 0);
+      if (balance > 0) {
+        rList.push({ ...c, balance });
+        rTotal += balance;
+      }
+    }
 
-    const rTotal = rList.reduce((sum, c) => sum + c.balance, 0);
-
-    // Calculate Payables List (Purchases)
-    const payList = dashboardData.purchases.map(c => {
+    const payList: (Contact & { balance: number })[] = [];
+    let payTotal = 0;
+    for (const c of dashboardData.purchases) {
       const balance = calculateMonthlyBalanceOnly(c);
-      return { ...c, balance };
-    }).filter(c => c.balance > 0);
+      if (balance > 0) {
+        payList.push({ ...c, balance });
+        payTotal += balance;
+      }
+    }
 
-    const payTotal = payList.reduce((sum, c) => sum + c.balance, 0);
-
-    // User wants "Main Dashboard" to sum both balances?
-    // The previous implementation of totalSaleMonth / totalPurchaseMonth was JUST for this month.
-    // If user wants "Total Outstanding" we have that in rTotal / payTotal.
-    // Let's ensure the Profit card reflects NET position if desired, or stick to Monthly Profit?
-    // The user said "show in the dashboard that it is the previous balance And it should add the both balances"
-    // This implies the totals at the top might be misleading if they only show monthly.
-    // Let's add independent stats for "Total Receivable" and "Total Payable" to the main cards? 
-    // Or keep the cards as "Monthly" and rely on the list totals (which we just fixed).
-    // The user said "Add both balances". I will assume rTotal and payTotal (which are cumulative) should be prominent.
+    console.log(`[App] Stats recalculated in ${(performance.now() - start).toFixed(2)}ms`);
 
     return {
       totalSaleMonth: sTotal,
       totalPurchaseMonth: pTotal,
-      totalProfit: sTotal - pTotal, // Keep this as Monthly Profit finding
-      totalReceivable: rTotal, // Cumulative
-      totalPayable: payTotal, // Cumulative
+      totalProfit: sTotal - pTotal,
+      totalReceivable: rTotal,
+      totalPayable: payTotal,
       receivableList: rList,
       payableList: payList
     };

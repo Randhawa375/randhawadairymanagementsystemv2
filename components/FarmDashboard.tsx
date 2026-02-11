@@ -24,6 +24,16 @@ const FarmDashboard: React.FC<FarmDashboardProps> = ({ onBack }) => {
     // File Input Ref
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
+    // Calculate Totals
+    const { totalMorning, totalEvening, grandTotal } = React.useMemo(() => {
+        return records.reduce((acc, rec) => {
+            acc.totalMorning += rec.morningQuantity || 0;
+            acc.totalEvening += rec.eveningQuantity || 0;
+            acc.grandTotal += rec.totalQuantity || 0;
+            return acc;
+        }, { totalMorning: 0, totalEvening: 0, grandTotal: 0 });
+    }, [records]);
+
     useEffect(() => {
         loadRecords();
     }, []);
@@ -65,7 +75,6 @@ const FarmDashboard: React.FC<FarmDashboardProps> = ({ onBack }) => {
             date: date,
             morningQuantity: m,
             eveningQuantity: e,
-            totalQuantity: m + e,
             totalQuantity: m + e,
             imageUrl: imageUrl || undefined,
             timestamp: Date.now()
@@ -228,7 +237,32 @@ const FarmDashboard: React.FC<FarmDashboardProps> = ({ onBack }) => {
                     </div>
                 </div>
 
-                {/* History List */}
+                {/* History List - Summary Card */}
+                <div className="grid grid-cols-3 gap-3 mb-8">
+                    <div className="bg-slate-900 border border-slate-800 p-4 rounded-[2rem] shadow-xl shadow-slate-200 flex flex-col items-center justify-center relative overflow-hidden group">
+                        <div className="absolute -right-4 -top-4 w-16 h-16 bg-white/5 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
+                        <span className="text-[9px] font-black text-white/40 uppercase tracking-[0.2em] mb-1">Total Milk</span>
+                        <div className="flex items-baseline gap-1">
+                            <span className="text-2xl font-black text-white">{grandTotal}</span>
+                            <span className="text-[10px] font-bold text-white/50">L</span>
+                        </div>
+                    </div>
+                    <div className="bg-white border border-slate-100 p-4 rounded-[2rem] shadow-sm flex flex-col items-center justify-center hover:shadow-md transition-all">
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Morning</span>
+                        <div className="flex items-baseline gap-1">
+                            <span className="text-xl font-black text-slate-800">{totalMorning}</span>
+                            <span className="text-[10px] font-bold text-slate-400">L</span>
+                        </div>
+                    </div>
+                    <div className="bg-white border border-slate-100 p-4 rounded-[2rem] shadow-sm flex flex-col items-center justify-center hover:shadow-md transition-all">
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Evening</span>
+                        <div className="flex items-baseline gap-1">
+                            <span className="text-xl font-black text-slate-800">{totalEvening}</span>
+                            <span className="text-[10px] font-bold text-slate-400">L</span>
+                        </div>
+                    </div>
+                </div>
+
                 <h3 className="text-right font-black text-slate-400 text-sm uppercase tracking-widest mb-4 mr-2">پچھلا ریکارڈ</h3>
                 <div className="space-y-3">
                     {records.length === 0 ? (

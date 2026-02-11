@@ -75,17 +75,24 @@ export const api = {
 
     // Contacts
     async getContacts(type: ModuleType): Promise<Contact[]> {
+        console.time(`getContacts_${type}`);
         const { data: contacts, error } = await supabase
             .from('contacts')
             .select('*')
             .eq('type', type);
 
         if (error) throw error;
-        if (!contacts) return [];
+        if (!contacts) {
+            console.timeEnd(`getContacts_${type}`);
+            return [];
+        }
 
         const contactIds = contacts.map(c => c.id);
 
-        if (contactIds.length === 0) return contacts.map(mapContact);
+        if (contactIds.length === 0) {
+            console.timeEnd(`getContacts_${type}`);
+            return contacts.map(mapContact);
+        }
 
         const { data: records } = await supabase
             .from('milk_records')
@@ -97,12 +104,30 @@ export const api = {
             .select('*')
             .in('contact_id', contactIds);
 
-        return contacts.map(c => {
+        console.log(`[API] Processing ${contacts.length} contacts, ${records?.length || 0} records, ${payments?.length || 0} payments`);
+
+        // Optimize: Group records and payments by contact_id using a Map
+        const recordsMap = new Map<string, any[]>();
+        records?.forEach(r => {
+            if (!recordsMap.has(r.contact_id)) recordsMap.set(r.contact_id, []);
+            recordsMap.get(r.contact_id)?.push(mapRecord(r));
+        });
+
+        const paymentsMap = new Map<string, any[]>();
+        payments?.forEach(p => {
+            if (!paymentsMap.has(p.contact_id)) paymentsMap.set(p.contact_id, []);
+            paymentsMap.get(p.contact_id)?.push(mapPayment(p));
+        });
+
+        const result = contacts.map(c => {
             const mapped = mapContact(c);
-            mapped.records = records?.filter(r => r.contact_id === c.id).map(mapRecord) || [];
-            mapped.payments = payments?.filter(p => p.contact_id === c.id).map(mapPayment) || [];
+            mapped.records = recordsMap.get(c.id) || [];
+            mapped.payments = paymentsMap.get(c.id) || [];
             return mapped;
         });
+
+        console.timeEnd(`getContacts_${type}`);
+        return result;
     },
 
     async createContact(contact: Contact, type: ModuleType) {

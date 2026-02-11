@@ -74,7 +74,9 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
 
     let newRecord: MilkRecord;
 
-    const effectiveRate = buyer.pricePerLiter;
+    // Standard Logic instead of Hook: Find a record in this month that has a rate, otherwise use global rate
+    const monthRec = buyer.records.find(r => r.date.startsWith(currentMonthPrefix) && r.pricePerLiter);
+    const effectiveRate = monthRec?.pricePerLiter || buyer.pricePerLiter;
 
     if (index >= 0) {
       const rec = updatedRecords[index];
@@ -87,7 +89,7 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
         eveningQuantity: e,
         totalQuantity: m + e,
         totalPrice: Math.round((m + e) * effectiveRate),
-        pricePerLiter: effectiveRate // Update snapshot to current rate
+        pricePerLiter: effectiveRate
       };
       updatedRecords[index] = newRecord;
     } else {
@@ -99,8 +101,8 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
         morningQuantity: m,
         eveningQuantity: e,
         totalQuantity: m + e,
-        totalPrice: Math.round((m + e) * buyer.pricePerLiter),
-        pricePerLiter: buyer.pricePerLiter,
+        totalPrice: Math.round((m + e) * effectiveRate),
+        pricePerLiter: effectiveRate,
         timestamp: Date.now(),
         images: []
       };
@@ -328,37 +330,47 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
     }
   };
 
-  const monthRecords = useMemo(() => {
-    return buyer.records.filter(r => r.date.startsWith(currentMonthPrefix));
-  }, [buyer.records, currentMonthPrefix]);
+  const { monthRecords, monthPayments, previousBalance, monthMilk, monthBill, monthPaid } = useMemo(() => {
+    const records = buyer.records || [];
+    const payments = buyer.payments || [];
+    const firstDayOfMonth = `${currentMonthPrefix}-01`;
 
-  const monthPayments = useMemo(() => {
-    return (buyer.payments || []).filter(p => p.date.startsWith(currentMonthPrefix));
-  }, [buyer.payments, currentMonthPrefix]);
+    const mRecords: MilkRecord[] = [];
+    const mPayments: Payment[] = [];
+    let prevBal = buyer.openingBalance || 0;
+    let mMilk = 0;
+    let mBill = 0;
+    let mPaid = 0;
 
-  const previousBalance = useMemo(() => {
-    // CUMULATIVE PREVIOUS BALANCE
-    // Opening Balance + All Past Transactions (Strictly Before Selected Month)
+    for (const r of records) {
+      if (r.date.startsWith(currentMonthPrefix)) {
+        mRecords.push(r);
+        mMilk += r.totalQuantity;
+        mBill += r.totalPrice;
+      } else if (r.date < firstDayOfMonth) {
+        prevBal += r.totalPrice;
+      }
+    }
 
-    // 1. Global Opening Balance (Initial Debt)
-    const initialBalance = buyer.openingBalance || 0;
+    for (const p of payments) {
+      if (p.date.startsWith(currentMonthPrefix)) {
+        mPayments.push(p);
+        mPaid += p.amount;
+      } else if (p.date < firstDayOfMonth) {
+        prevBal -= p.amount;
+      }
+    }
 
-    // 2. Past Bill (Records before current month)
-    const pastBill = buyer.records
-      .filter(r => r.date < `${currentMonthPrefix}-01`)
-      .reduce((sum, r) => sum + r.totalPrice, 0);
+    return {
+      monthRecords: mRecords,
+      monthPayments: mPayments,
+      previousBalance: prevBal,
+      monthMilk: mMilk,
+      monthBill: mBill,
+      monthPaid: mPaid
+    };
+  }, [buyer.records, buyer.payments, currentMonthPrefix, buyer.openingBalance]);
 
-    // 3. Past Paid (Payments before current month)
-    const pastPaid = (buyer.payments || [])
-      .filter(p => p.date < `${currentMonthPrefix}-01`)
-      .reduce((sum, p) => sum + p.amount, 0);
-
-    return initialBalance + pastBill - pastPaid;
-  }, [buyer, currentMonthPrefix]);
-
-  const monthMilk = monthRecords.reduce((sum, r) => sum + r.totalQuantity, 0);
-  const monthBill = monthRecords.reduce((sum, r) => sum + r.totalPrice, 0);
-  const monthPaid = monthPayments.reduce((sum, p) => sum + p.amount, 0);
   const totalBalance = previousBalance + monthBill - monthPaid;
 
   const handleDownloadPDF = async () => {
@@ -867,31 +879,46 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
     const newRate = parseFloat(tempRate);
     if (isNaN(newRate) || newRate < 0) return;
 
-    // GLOBAL UPDATE STRATEGY:
-    // Update ALL records (Past & Present) to the new rate.
+    const today = new Date();
+    const todayPrefix = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+    const isLatestMonth = currentMonthPrefix >= todayPrefix;
+
+    console.log(`[RateUpdate] New Rate: ${newRate}, Month: ${currentMonthPrefix}, IsLatest: ${isLatestMonth}`);
+
+    // Update records ONLY for the selected month
     const updatedRecords = buyer.records.map(r => {
-      const newPrice = Math.round(r.totalQuantity * newRate);
-      return {
-        ...r,
-        pricePerLiter: newRate,
-        totalPrice: newPrice
-      };
+      if (r.date.startsWith(currentMonthPrefix)) {
+        const newPrice = Math.round(r.totalQuantity * newRate);
+        return {
+          ...r,
+          pricePerLiter: newRate,
+          totalPrice: newPrice
+        };
+      }
+      return r;
     });
 
-    // Update Local State with Locked Records + New Global Price
-    onUpdateBuyer({
+    // Update Local State
+    const updatedBuyer = {
       ...buyer,
-      pricePerLiter: newRate,
       records: updatedRecords
-    });
+    };
 
+    // If it's the current/future month, update the global rate too
+    if (isLatestMonth) {
+      updatedBuyer.pricePerLiter = newRate;
+    }
+
+    onUpdateBuyer(updatedBuyer);
     setIsEditingRate(false);
 
     try {
-      await api.updateContact({ ...buyer, pricePerLiter: newRate });
+      if (isLatestMonth) {
+        await api.updateContact({ ...buyer, pricePerLiter: newRate });
+      }
 
-      // Update ALL records in DB
-      const recordsToSave = updatedRecords.filter(r => r.totalQuantity > 0);
+      // Update relevant records in DB
+      const recordsToSave = updatedRecords.filter(r => r.date.startsWith(currentMonthPrefix) && r.totalQuantity > 0);
       const promises = recordsToSave.map(rec => api.addRecord(buyer.id, rec));
       await Promise.all(promises);
     } catch (e) {
