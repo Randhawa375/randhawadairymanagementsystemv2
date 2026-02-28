@@ -334,7 +334,7 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
     }
   };
 
-  const { monthRecords, monthPayments, previousBalance, monthMilk, monthBill, monthPaid } = useMemo(() => {
+  const { monthRecords, monthPayments, previousBalance, monthMilk, monthBill, monthPaid, monthMorningTotal, monthEveningTotal } = useMemo(() => {
     const records = buyer.records || [];
     const payments = buyer.payments || [];
     const firstDayOfMonth = `${currentMonthPrefix}-01`;
@@ -345,12 +345,16 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
     let mMilk = 0;
     let mBill = 0;
     let mPaid = 0;
+    let mMorningTotal = 0;
+    let mEveningTotal = 0;
 
     for (const r of records) {
       if (r.date.startsWith(currentMonthPrefix)) {
         mRecords.push(r);
         mMilk += r.totalQuantity;
         mBill += r.totalPrice;
+        mMorningTotal += r.morningQuantity || 0;
+        mEveningTotal += r.eveningQuantity || 0;
       } else if (r.date < firstDayOfMonth) {
         prevBal += r.totalPrice;
       }
@@ -371,7 +375,9 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
       previousBalance: prevBal,
       monthMilk: mMilk,
       monthBill: mBill,
-      monthPaid: mPaid
+      monthPaid: mPaid,
+      monthMorningTotal: mMorningTotal,
+      monthEveningTotal: mEveningTotal
     };
   }, [buyer.records, buyer.payments, currentMonthPrefix, buyer.openingBalance]);
 
@@ -494,8 +500,35 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
         printQueue.push({ type: 'PREV_BAL', balance: previousBalance });
       }
 
-      // Add Milk Rows
-      recordsToPrint.forEach(r => printQueue.push({ type: 'MILK', data: r }));
+      // Add Milk Rows with 10-Day Summaries
+      let currentTenDayMilk = 0;
+      let currentTenDayBill = 0;
+
+      recordsToPrint.forEach((r, idx) => {
+        printQueue.push({ type: 'MILK', data: r });
+        currentTenDayMilk += r.totalQuantity;
+        currentTenDayBill += r.totalPrice;
+
+        const day = parseInt(r.date.split('-')[2]);
+        const nextRecord = recordsToPrint[idx + 1];
+        const nextDay = nextRecord ? parseInt(nextRecord.date.split('-')[2]) : null;
+
+        // Intervals: 10, 20, or end of records
+        const isEndOfInterval = (day <= 10 && (nextDay === null || nextDay > 10)) ||
+          (day <= 20 && day > 10 && (nextDay === null || nextDay > 20)) ||
+          (day > 20 && nextDay === null);
+
+        if (isEndOfInterval) {
+          printQueue.push({
+            type: 'TEN_DAY_SUMMARY',
+            label: day <= 10 ? '1-10' : (day <= 20 ? '11-20' : '21-31'),
+            milk: currentTenDayMilk,
+            bill: currentTenDayBill
+          });
+          currentTenDayMilk = 0;
+          currentTenDayBill = 0;
+        }
+      });
 
       // Add Payment Rows (With Header if needed)
       if (paymentsToPrint.length > 0) {
@@ -619,6 +652,16 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
                       <td class="p-2 text-left font-mono text-gray-700">${r.totalPrice.toLocaleString()}</td>
                     </tr>
                  `;
+          }
+          if (item.type === 'TEN_DAY_SUMMARY') {
+            batchHTML += `
+                    <tr class="bg-gray-100/50 border-b border-gray-200">
+                      <td class="p-2 font-black text-gray-800 text-xs">خلاصہ (${item.label} دن)</td>
+                      <td colspan="2" class="p-2 text-center text-gray-400 font-bold">10 DAY TOTAL</td>
+                      <td class="p-2 text-center font-black text-gray-900 bg-gray-200/50">${item.milk} L</td>
+                      <td class="p-2 text-left font-mono font-black text-gray-900">${item.bill.toLocaleString()}</td>
+                    </tr>
+                `;
           }
           if (item.type === 'PAYMENT_HEADER') {
             if (inMilkTable) { batchHTML += closeTable(); inMilkTable = false; }
@@ -1133,6 +1176,27 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
                     );
                   })}
                 </tbody>
+                {monthRecords.length > 0 && (
+                  <tfoot>
+                    <tr className="bg-slate-900 text-white shadow-xl">
+                      <td className="p-4 rounded-r-2xl border-y border-r border-slate-800">
+                        <div className="text-sm font-black uppercase tracking-widest text-right">ٹوٹل (Total)</div>
+                      </td>
+                      <td className="p-2 text-center border-y border-slate-800">
+                        <div className="text-lg font-black">{monthMorningTotal}</div>
+                        <div className="text-[10px] text-white/40 uppercase font-bold">صبح</div>
+                      </td>
+                      <td className="p-2 text-center border-y border-slate-800">
+                        <div className="text-lg font-black">{monthEveningTotal}</div>
+                        <div className="text-[10px] text-white/40 uppercase font-bold">شام</div>
+                      </td>
+                      <td className="p-4 text-center font-black text-2xl text-emerald-400 rounded-l-2xl border-y border-l border-slate-800">
+                        {monthMilk}
+                        <div className="text-[10px] text-white/40 uppercase font-bold">کل دودھ</div>
+                      </td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
           </>
@@ -1209,6 +1273,14 @@ const BuyerProfile: React.FC<BuyerProfileProps> = ({ buyer, moduleType, selected
             </div>
             <span className="text-[8px] md:text-[9px] font-black mt-1 md:mt-2 uppercase tracking-widest text-emerald-500">Payments</span>
           </button>
+        </div>
+
+        <div className="hidden lg:flex flex-col items-center px-4 border-l border-slate-100">
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl font-black text-slate-900 tracking-tighter">{monthMilk.toLocaleString()}</span>
+            <span className="text-[10px] font-black text-slate-400">L</span>
+          </div>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ٹوٹل دودھ</p>
         </div>
 
         <div className="text-right flex items-center gap-1.5 md:gap-8 overflow-hidden">
