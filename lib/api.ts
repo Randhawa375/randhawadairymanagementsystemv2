@@ -94,15 +94,31 @@ export const api = {
             return contacts.map(mapContact);
         }
 
-        const { data: records } = await supabase
-            .from('milk_records')
-            .select('*')
-            .in('contact_id', contactIds);
+        const fetchAllForContacts = async (table: string, ids: string[]) => {
+            let allData: any[] = [];
+            const chunkSize = 50;
+            for (let i = 0; i < ids.length; i += chunkSize) {
+                const chunkIds = ids.slice(i, i + chunkSize);
+                let from = 0;
+                let limit = 1000;
+                while(true) {
+                    const { data, error } = await supabase
+                        .from(table)
+                        .select('*')
+                        .in('contact_id', chunkIds)
+                        .range(from, from + limit - 1);
+                    if (error) throw error;
+                    if (!data || data.length === 0) break;
+                    allData = [...allData, ...data];
+                    if (data.length < limit) break;
+                    from += limit;
+                }
+            }
+            return allData;
+        };
 
-        const { data: payments } = await supabase
-            .from('payments')
-            .select('*')
-            .in('contact_id', contactIds);
+        const records = await fetchAllForContacts('milk_records', contactIds);
+        const payments = await fetchAllForContacts('payments', contactIds);
 
         console.log(`[API] Processing ${contacts.length} contacts, ${records?.length || 0} records, ${payments?.length || 0} payments`);
 
